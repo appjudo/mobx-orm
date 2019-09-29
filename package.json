@@ -1,11 +1,11 @@
 {
   "name": "mobx-orm",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "An ORM for MobX",
   "author": "AppJudo Inc.",
   "license": "MIT",
   "main": "dist/index.js",
-  "types": "index.d.ts",
+  "types": "dist/index.d.ts",
   "prepublish": "rollup -c",
   "files": [
     "dist"
