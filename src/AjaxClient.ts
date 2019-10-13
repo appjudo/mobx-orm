@@ -32,6 +32,8 @@ export interface AjaxRequestConfig extends RequestInit {
   queryParams: Record<string, string | number | boolean>;
   bodyParams: Record<string, string>;
   context: any;
+
+  onRequest?: (requestConfig: AjaxRequestConfig) => Promise<AjaxRequestConfig | void> | AjaxRequestConfig | void;
 }
 
 const NESTED_OBJECT_KEYS: (keyof AjaxRequestConfig)[] = ['headers', 'queryParams', 'bodyParams'];
@@ -65,8 +67,16 @@ export class AjaxRequest {
     this.config = config;
   }
 
-  fetch() {
-    const requestConfig = cloneRequestConfig(this.config);
+  async fetch() {
+    let requestConfig = cloneRequestConfig(this.config);
+
+    if (requestConfig.onRequest) {
+      const newRequestConfig = await requestConfig.onRequest(requestConfig);
+      if (newRequestConfig) {
+        requestConfig = newRequestConfig;
+      }
+    }
+
     let url = (requestConfig.baseUrl || '') + (requestConfig.url || '');
     if (!requestConfig.method) {
       requestConfig.method = 'GET';
@@ -82,19 +92,22 @@ export class AjaxRequest {
       requestConfig.body = bodyParamsString;
     }
 
+    delete requestConfig.client;
     delete requestConfig.baseUrl;
     delete requestConfig.url;
     delete requestConfig.queryParams;
     delete requestConfig.bodyParams;
+    delete requestConfig.context;
+    delete requestConfig.onRequest;
 
-    const request = new Request(url, requestConfig as RequestInit);
+    const request = new Request(url, requestConfig);
     this.request = request;
     if (this.config.client) {
       this.config.client.requests.push(this);
     }
     // TODO: Handle timeout via fetch signal.
     // NOTE: Previous implementation of AbortSignal caused login to fail.
-    return fetch(request).then(async (response: Response) => {
+    return await fetch(request).then(async (response: Response) => {
       this.response = response;
       if (!response.ok) {
         const contentType = response.headers.get('Content-type') || '';
