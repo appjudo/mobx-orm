@@ -10,6 +10,7 @@ export default abstract class Repository<T extends ModelObject> {
   abstract async add(item: T): Promise<T | undefined>;
   abstract async update(item: T): Promise<T | undefined>;
   abstract async delete(item: T): Promise<any>;
+  abstract async deleteAll(options?: ListOptions): Promise<List<T>>;
 
   @action listObservable(options?: ListOptions): ObservableList<T> {
     return getObservableListFromProvider(() => this.list(options));
@@ -34,4 +35,6 @@ export class EmptyRepository<T extends ModelObject> extends Repository<T> {
   }
 
   @action async delete(item: T): Promise<any> {}
+
+  @action async deleteAll(options?: ListOptions): Promise<any> {}
 }

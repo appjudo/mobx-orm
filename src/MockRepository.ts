@@ -5,6 +5,7 @@ import lodash from 'lodash';
 
 import Repository from './Repository';
 import { List, ListOptions, ModelObject } from './types';
+import { getObservableListFromArray } from './ObservableList';
 
 type FilterFunction<T> = (value: string) => ((item: T) => boolean);
 type SortByIteratee<T> = string | ((a: T) => any);
@@ -77,7 +78,7 @@ export default class MockRepository<T extends ModelObject> extends Repository<T>
   @action list(options: ListOptions = {}, pageIndex?: number): Promise<List<T>> {
     return new Promise(action((resolve: Function, reject: Function) => {
       setTimeout(() => {
-        let data = this._data.slice(0) as List<T>;
+        let data = this._data.slice(0);
         if (options.filters) {
           for (let filterName in options.filters) {
             const filterFunction = this._config.filter && this._config.filter[filterName];
@@ -121,8 +122,13 @@ export default class MockRepository<T extends ModelObject> extends Repository<T>
           }
           data = data.filter(searchFunction(query));
         }
-        resolve(data);
+        resolve(getObservableListFromArray(data));
       }, FETCH_DELAY_MS);
     }));
+  }
+
+  @action async deleteAll(options: ListOptions = {}): Promise<List<T>> {
+    this._data.replace([]);
+    return this._data;
   }
 }

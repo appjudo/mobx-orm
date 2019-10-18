@@ -50,6 +50,11 @@ export interface AjaxRepositoryConfig<T> {
   deleteRequestConfigModifier?: ItemRequestConfigModifier<T>;
   deleteResponseMapper?: ItemResponseMapper<any>;
 
+  deleteAllUrl?: StaticUrl;
+  deleteAllMethod?: string;
+  deleteAllRequestConfigModifier?: ListRequestConfigModifier<T>;
+  deleteAllResponseMapper?: ListResponseMapper<any>;
+
   sort?: RequestConfigModifier;
   search?: RequestConfigModifier;
   filter?: FilterRequestConfigModifier;
@@ -78,8 +83,8 @@ export default class AjaxRepository<T extends ModelObject> extends Repository<T>
   client: AjaxClient;
   baseUrl?: string;
 
-  listUrl?: StaticUrl;
   listMethod: string = 'GET';
+  listUrl?: StaticUrl;
   listRequestConfigModifier?: ListRequestConfigModifier<T>;
   listResponseMapper: ListResponseMapper<T>;
 
@@ -103,6 +108,11 @@ export default class AjaxRepository<T extends ModelObject> extends Repository<T>
   deleteRequestConfigModifier?: ItemRequestConfigModifier<T>;
   deleteResponseMapper: ItemResponseMapper<T> = (data: any) => data;
 
+  deleteAllMethod: string = 'DELETE';
+  deleteAllUrl?: StaticUrl;
+  deleteAllRequestConfigModifier?: ListRequestConfigModifier<T>;
+  deleteAllResponseMapper: ListResponseMapper<T> = (data: any) => data;
+
   sort?: RequestConfigModifier;
   search?: RequestConfigModifier;
   filter?: FilterRequestConfigModifier;
@@ -119,32 +129,18 @@ export default class AjaxRepository<T extends ModelObject> extends Repository<T>
     this.client = config.client || new AjaxClient();
     this.getByIdResponseMapper = config.getByIdResponseMapper;
     this.listResponseMapper = config.listResponseMapper;
+
+    // Use list* as defaults for deleteAll*, then overwrite via `assign` from `config`.
+    // TODO: Add collection* and member* properties to set generic default values.
+    this.deleteAllUrl = config.listUrl;
+    this.deleteAllRequestConfigModifier = config.listRequestConfigModifier;
+
     Object.assign(this, config);
   }
 
   @action list(options: ListOptions = {}, pageIndex?: number): Promise<List<T>> {
     const request = this.createRequest(this.listUrl, this.listMethod);
-    if (options.filters && Object.keys(options.filters).length) {
-      const filterFunction = this.filter;
-      if (!filterFunction) {
-        throw new Error(`Repository has no filter function`);
-      }
-      filterFunction(request.config, options.filters);
-    }
-    if (options.sort) {
-      let sortFunction = this.sort;
-      if (!sortFunction) {
-        throw new Error(`Repository has no sort function`);
-      }
-      sortFunction(request.config, options.sort);
-    }
-    if (options.search) {
-      const searchFunction = this.search;
-      if (!searchFunction) {
-        throw new Error(`Repository has no search function`);
-      }
-      searchFunction(request.config, options.search);
-    }
+    this.applyListOptionsToRequest(request, options);
     if (this.listRequestConfigModifier) {
       this.listRequestConfigModifier(request.config, options, pageIndex);
     }
@@ -203,6 +199,39 @@ export default class AjaxRepository<T extends ModelObject> extends Repository<T>
       this.updateRequestConfigModifier(request.config, item);
     }
     return request.fetchJson().then((data: any) => this.deleteResponseMapper(data, request.config.context));
+  }
+
+  @action deleteAll(options: ListOptions = {}): Promise<any> {
+    const request = this.createRequest(this.deleteAllUrl, this.deleteAllMethod);
+    this.applyListOptionsToRequest(request, options);
+    if (this.deleteAllRequestConfigModifier) {
+      this.deleteAllRequestConfigModifier(request.config, options);
+    }
+    return request.fetchJson().then((data: any) => this.deleteAllResponseMapper(data, request.config.context));
+  }
+
+  private applyListOptionsToRequest(request: AjaxRequest, options: ListOptions) {
+    if (options.filters && Object.keys(options.filters).length) {
+      const filterFunction = this.filter;
+      if (!filterFunction) {
+        throw new Error(`Repository has no filter function`);
+      }
+      filterFunction(request.config, options.filters);
+    }
+    if (options.sort) {
+      let sortFunction = this.sort;
+      if (!sortFunction) {
+        throw new Error(`Repository has no sort function`);
+      }
+      sortFunction(request.config, options.sort);
+    }
+    if (options.search) {
+      const searchFunction = this.search;
+      if (!searchFunction) {
+        throw new Error(`Repository has no search function`);
+      }
+      searchFunction(request.config, options.search);
+    }
   }
 
   private createRequest(url?: Url<T>, method?: string, item?: T) {

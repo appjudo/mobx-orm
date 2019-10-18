@@ -72,6 +72,10 @@ abstract class BaseCollection<T extends ModelObject> {
     return result;
   }
 
+  @action async deleteAll() {
+    return await this._source.deleteAll();
+  }
+
   sort(sort: string) {
     return this._clone({sort});
   }
