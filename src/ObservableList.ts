@@ -14,6 +14,7 @@ export interface BaseObservableList<T> extends IObservableArray<T> {
   provider: ListProvider<T>;
   promise: Promise<List<T>>;
   isLoading: boolean;
+  isReloading: boolean;
   error?: Error;
   metadata?: any;
 } 
@@ -28,8 +29,9 @@ export interface PaginatedObservableList<T> extends BaseObservableList<T> {
   pageIndex: number;
   pageSize: number;
   isFullyLoaded: boolean;
+  _ignoreNextPage: boolean;
   getNextPage: () => Promise<List<T>>;
-  reload: (this: PaginatedObservableList<T>) => Promise<List<T>>;
+  reload: (this: PaginatedObservableList<T>, clear?: boolean) => Promise<List<T>>;
   preload: (this: PaginatedObservableList<T>) => Promise<List<T>>;
 }
 
@@ -45,22 +47,25 @@ function reload<T>(this: ObservableList<T>, clear: boolean = false): Promise<Lis
   if (this.isLoading) {
     return this.promise;
   }
+
   this.error = undefined;
   this.promise = this.provider().then(action((data: List<T>) => {
     this.isLoading = false;
+    this.isReloading = false;
     this.replace(data || []);
-    if ('metadata' in data) {
-      this.metadata = data.metadata;
-    }
+    attachMetadata(this, data);
     return data;
   })).catch(action((error: Error) => {
     // debugger;
     this.replace([]);
     this.isLoading = false;
+    this.isReloading = false;
     this.error = error;
     throw error;
   }));
+
   this.isLoading = true;
+  this.isReloading = true;
   return this.promise;
 }
 
@@ -74,13 +79,45 @@ function paginatedPreload<T>(this: PaginatedObservableList<T>): Promise<List<T>>
   return this.getNextPage();
 }
 
-function paginatedReload<T>(this: PaginatedObservableList<T>): Promise<List<T>> {
-  this.replace([]);
-  this.isFullyLoaded = false;
-  this.pageIndex = 0;
-  this.totalLength = 0;
-  this.isLoading = false;
-  return this.getNextPage();
+function paginatedReload<T>(this: PaginatedObservableList<T>, clear?: boolean): Promise<List<T>> {
+  if (clear) {
+    this.replace([]);
+    this.isFullyLoaded = false;
+    this.pageIndex = 0;
+    this.totalLength = 0;
+  }
+  if (this.isReloading) {
+    return this.promise;
+  }
+  if (this.isLoading) {
+    // getNextPage is in progress --- force its result to be ignored.
+    this._ignoreNextPage = true;
+  }
+
+  this.error = undefined;
+  const {pageSize} = this;
+  this.promise = this.provider(pageSize, 0).then(action((data: List<T>) => {
+    this.replace([]);
+    this.totalLength = 0;
+    for (let index = 0; index < data.length; index++) {
+      this[index] = data[index];
+    }
+    this.pageIndex = 1;
+    attachMetadata(this, data);
+    this.isLoading = false;
+    this.isReloading = false;
+    this.isFullyLoaded = this.length >= this.totalLength;
+    return data;
+  })).catch(action((error: Error) => {
+    this.isLoading = false;
+    this.isReloading = false;
+    this.error = error;
+    throw error;
+  }));
+
+  this.isLoading = true;
+  this.isReloading = true;
+  return this.promise;
 }
 
 function attachMetadata<T>(target: List<T> | PaginatedObservableList<T>, source: List<T>) {
@@ -98,6 +135,7 @@ function illegalAccessNoOp() {};
 export function getObservableListFromProvider<T>(provider: ListProvider<T>): ObservableList<T> {
   const list: ObservableList<T> = extendObservable(getObservableArrayObjectHybrid<T>(), {
     isLoading: true,
+    isReloading: false,
     provider,
     reload,
     preload,
@@ -133,17 +171,26 @@ function getNextPage<T>(this: PaginatedObservableList<T>): Promise<List<T>> {
   // Cache these values here as local constants for reliable usage in nested closure scopes.
   const {pageSize, pageIndex} = this;
   this.promise = this.provider(pageSize, pageIndex).then(action((data: List<T>) => {
-    const startIndex = pageSize * pageIndex;
-    for (let index = 0; index < data.length; index++) {
-      this[startIndex + index] = data[index];
+    if (this._ignoreNextPage) {
+      // If list was reloaded during provider resolution, then we should not handle next page.
+      this._ignoreNextPage = false;
+    } else {
+      const startIndex = pageSize * pageIndex;
+      for (let index = 0; index < data.length; index++) {
+        this[startIndex + index] = data[index];
+      }
+      this.pageIndex++;
+      attachMetadata(this, data);
+      this.isLoading = false;
+      this.isFullyLoaded = this.length >= this.totalLength;
     }
-    this.pageIndex++;
-    attachMetadata(this, data);
-    this.isLoading = false;
-    this.isFullyLoaded = this.length >= this.totalLength;
     return data;
   })).catch(action((error: Error) => {
-    // debugger;
+    if (this._ignoreNextPage) {
+      // If list was reloaded during provider resolution, then we should not handle next page.
+      this._ignoreNextPage = false;
+      throw error;
+    }
     this.isLoading = false;
     this.error = error;
     throw error;
@@ -158,7 +205,9 @@ export function getPaginatedObservableListFromProvider<T>(
 ): PaginatedObservableList<T> {
   const pageIndex = 0;
   const list: PaginatedObservableList<T> = extendObservable(getObservableArrayObjectHybrid<T>(), {
+    _ignoreNextPage: false,
     isLoading: true,
+    isReloading: false,
     provider,
     reload: paginatedReload,
     preload: paginatedPreload,
