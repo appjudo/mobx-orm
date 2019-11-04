@@ -2,7 +2,7 @@
 
 import { action, computed, extendObservable, observable } from 'mobx';
 import Repository, { EmptyRepository } from './Repository';
-import { ListOptions, ModelObject, ObservableList, PaginatedObservableList } from './types';
+import { CollectionOptions, ModelObject, ObservableList, PaginatedObservableList } from './types';
 import {
   BaseObservableList,
   getObservableListFromProvider,
@@ -11,18 +11,18 @@ import {
 
 abstract class BaseCollection<T extends ModelObject> {
   @observable protected _source: Repository<T>;
-  @observable protected _options: ListOptions;
+  @observable protected _options: CollectionOptions;
 
   protected _data?: BaseObservableList<T>;
 
-  constructor(source: Repository<T>, options: ListOptions = {}) {
+  constructor(source: Repository<T>, options: CollectionOptions = {}) {
     this._source = source;
     this._options = observable(Object.assign({filters: {}}, options));
   }
 
   abstract get data(): (ObservableList<T> | PaginatedObservableList<T>);
   abstract get all(): (ObservableList<T> | PaginatedObservableList<T>);
-  protected abstract _clone(options: ListOptions): (Collection<T> | PaginatedCollection<T>);
+  protected abstract _clone(options: CollectionOptions): (Collection<T> | PaginatedCollection<T>);
 
   /** True if the collection is loading new or more data. */
   @computed get isLoading(): boolean {
@@ -108,7 +108,7 @@ abstract class BaseCollection<T extends ModelObject> {
 export default class Collection<T extends ModelObject> extends BaseCollection<T> {
   protected _data?: ObservableList<T>;
 
-  constructor(source: Repository<T>, options: ListOptions = {}) {
+  constructor(source: Repository<T>, options: CollectionOptions = {}) {
     super(source, options);
     this._source = source;
     this._options = observable(Object.assign({filters: {}}, options));
@@ -131,7 +131,7 @@ export default class Collection<T extends ModelObject> extends BaseCollection<T>
     return this.data;
   }
 
-  protected _clone(options: ListOptions) {
+  protected _clone(options: CollectionOptions) {
     options = Object.assign({}, this._options, options);
     return new Collection(this._source, options);
   }
@@ -142,7 +142,7 @@ const DEFAULT_PAGE_SIZE = 10;
 export class PaginatedCollection<T extends ModelObject> extends BaseCollection<T> {
   protected _data?: PaginatedObservableList<T>;
 
-  constructor(source: Repository<T>, options: ListOptions = {}) {
+  constructor(source: Repository<T>, options: CollectionOptions = {}) {
     super(source, options);
     super(source, options);
     if (!this._options.pageSize) {
@@ -172,7 +172,7 @@ export class PaginatedCollection<T extends ModelObject> extends BaseCollection<T
     return this._clone({pageSize});
   }
 
-  protected _clone(options: ListOptions) {
+  protected _clone(options: CollectionOptions) {
     options = Object.assign({}, this._options, options);
     return new PaginatedCollection(this._source, options);
   }

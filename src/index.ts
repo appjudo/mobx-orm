@@ -9,7 +9,11 @@ export {
   RequestConfigModifier,
   ResponseError,
 } from './AjaxClient';
-export { default as AjaxRepository, AjaxRepositoryConfig } from './AjaxRepository';
+export {
+  default as AjaxRepository,
+  AjaxRepositoryConfig,
+  listPaginationRequestConfigModifier
+} from './AjaxRepository';
 export { default as Collection, EmptyCollection, PaginatedCollection } from './Collection';
 export { default as MockRepository, MockRepositoryConfig } from './MockRepository';
 export { default as Model } from './Model';

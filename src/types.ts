@@ -5,13 +5,13 @@ import { List } from './ObservableList';
 
 export type Id = string;
 export type StaticUrl = string;
-export type DynamicUrl<T> = (value: T) => string | undefined;
+export type DynamicUrl<T extends ModelObject> = (value: Id | T) => string | undefined;
 export type Url<T> = StaticUrl | DynamicUrl<T>;
 
 export type ItemResponseMapper<T> = (data: any, context: any) => T | undefined;
 export type ListResponseMapper<T> = (data: any, context: any) => List<T>;
 
-export interface ListOptions {
+export interface CollectionOptions {
   /** Name of sort type to apply. */
   sort?: string;
   /** Filter names/values to apply. */

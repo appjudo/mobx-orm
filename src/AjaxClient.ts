@@ -1,7 +1,7 @@
 // Copyright (c) 2017-2019 AppJudo Inc.  MIT License.
 
 import qs from 'qs';
-import { ListOptions } from './types';
+import { Id, CollectionOptions } from './types';
 
 export type RequestConfigModifier = (requestConfig: AjaxRequestConfig, value: string) => void;
 export type FilterRequestConfigModifier =
@@ -9,7 +9,7 @@ export type FilterRequestConfigModifier =
 
 export type ItemRequestConfigModifier<T> = (requestConfig: AjaxRequestConfig, item: T) => void;
 export type ListRequestConfigModifier<T> =
-  (requestConfig: AjaxRequestConfig, options: ListOptions, pageIndex?: number) => void;
+  (requestConfig: AjaxRequestConfig, options: CollectionOptions, pageIndex?: number) => void;
 
 export class ResponseError extends Error {
   request: Request;
@@ -110,12 +110,24 @@ export class AjaxRequest {
     return await fetch(request).then(async (response: Response) => {
       this.response = response;
       if (!response.ok) {
-        const contentType = response.headers.get('Content-type') || '';
+        const contentType = response.headers.get('Content-Type') || '';
         let responseData;
         if (contentType.indexOf('application/json') !== -1) {
-          responseData = await response.json();
+          const responseClone = response.clone();
+          try {
+            responseData = await response.json();
+          } catch (error) {
+            const contentLength = response.headers.get('Content-Length');
+            if (!contentLength || parseInt(contentLength, 10) !== 0) {
+              const body = await responseClone.text();
+              if (body.length) {
+                throw new ResponseError(request, response, responseData,
+                  'Response error: Failed to parse body with application/json content type');
+              }
+            }
+          }
         }
-        throw new ResponseError(request, response, responseData, `Response error status ${response.status} ${response.statusText}`);
+        throw new ResponseError(request, response, responseData, `Response error: status ${response.status} ${response.statusText}`);
       }
       return response;
     });

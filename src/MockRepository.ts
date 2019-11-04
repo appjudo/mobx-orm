@@ -4,7 +4,7 @@ import { action, observable, IObservableArray } from 'mobx';
 import lodash from 'lodash';
 
 import Repository from './Repository';
-import { List, ListOptions, ModelObject } from './types';
+import { List, CollectionOptions, ModelObject } from './types';
 import { getObservableListFromArray } from './ObservableList';
 
 type FilterFunction<T> = (value: string) => ((item: T) => boolean);
@@ -75,7 +75,7 @@ export default class MockRepository<T extends ModelObject> extends Repository<T>
     throw new Error('Not implemented yet');
   }
 
-  @action list(options: ListOptions = {}, pageIndex?: number): Promise<List<T>> {
+  @action list(options: CollectionOptions = {}, pageIndex?: number): Promise<List<T>> {
     return new Promise(action((resolve: Function, reject: Function) => {
       setTimeout(() => {
         let data = this._data.slice(0);
@@ -127,7 +127,7 @@ export default class MockRepository<T extends ModelObject> extends Repository<T>
     }));
   }
 
-  @action async deleteAll(options: ListOptions = {}): Promise<List<T>> {
+  @action async deleteAll(options: CollectionOptions = {}): Promise<List<T>> {
     this._data.replace([]);
     return this._data;
   }
