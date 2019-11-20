@@ -4,6 +4,7 @@ export {
   default as AjaxClient,
   AjaxRequest,
   AjaxRequestConfig,
+  AjaxResponseOverride,
   FilterRequestConfigModifier,
   ItemRequestConfigModifier,
   RequestConfigModifier,

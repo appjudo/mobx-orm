@@ -24,6 +24,13 @@ export class ResponseError extends Error {
   }
 }
 
+export interface AjaxResponseOverride {
+  status: number,
+  statusText?: string,
+  headers?: Record<string, string>,
+  responseData?: any,
+}
+
 export interface AjaxRequestConfig extends RequestInit {
   client?: AjaxClient;
   baseUrl?: string;
@@ -33,7 +40,8 @@ export interface AjaxRequestConfig extends RequestInit {
   bodyParams: Record<string, string>;
   context: any;
 
-  onRequest?: (requestConfig: AjaxRequestConfig) => Promise<AjaxRequestConfig | void> | AjaxRequestConfig | void;
+  onRequest?: (request: AjaxRequest) => Promise<boolean> | boolean;
+  onResponse?: (response: Response, request: AjaxRequest) => Promise<boolean> | boolean;
 }
 
 const NESTED_OBJECT_KEYS: (keyof AjaxRequestConfig)[] = ['headers', 'queryParams', 'bodyParams'];
@@ -41,6 +49,7 @@ const NESTED_OBJECT_KEYS: (keyof AjaxRequestConfig)[] = ['headers', 'queryParams
 export default class AjaxClient {
   config: AjaxRequestConfig;
   requests: AjaxRequest[];
+  responseOverride?: AjaxResponseOverride;
 
   constructor(config: Partial<AjaxRequestConfig> = {}) {
     this.config = cloneRequestConfig(config);
@@ -67,15 +76,58 @@ export class AjaxRequest {
     this.config = config;
   }
 
-  async fetch() {
-    let requestConfig = cloneRequestConfig(this.config);
+  fetch(parseJsonBody: Boolean = false): Promise<Response> {
+    return new Promise<Response>(async (resolve, reject) => {
+      try {
+        if (this.config.onRequest) {
+          const shouldContinueMakingRequest = await this.config.onRequest(this);
+          if (!shouldContinueMakingRequest) return;
+        }
+        this.request = await this.createRequest();
+        if (this.config.client) {
+          this.config.client.requests.push(this);
+          if (this.config.client.responseOverride) {
+            this.response = new Response(null, this.config.client.responseOverride);
+            this.responseData = this.config.client.responseOverride.responseData;
+          }
+        }
+        if (!this.response) {
+          // TODO: Handle timeout via fetch signal.
+          // NOTE: Previous implementation of AbortSignal caused login to fail.
+          this.response = await fetch(this.request);
+          if (parseJsonBody) {
+            this.responseData = this.parseJsonFromResponse();
+          }
+        }
 
-    if (requestConfig.onRequest) {
-      const newRequestConfig = await requestConfig.onRequest(requestConfig);
-      if (newRequestConfig) {
-        requestConfig = newRequestConfig;
+        if (this.config.onResponse) {
+          const shouldContinueHandlingResponse = await this.config.onResponse(this.response, this);
+          if (!shouldContinueHandlingResponse) return;
+        }
+
+        if (!this.response.ok) {
+          throw new ResponseError(
+            this.request,
+            this.response,
+            this.responseData,
+            `Response error: status ${this.response.status} ${this.response.statusText}`,
+          );
+        }
+
+        resolve(this.response);
+      } catch (error) {
+        reject(error);
       }
-    }
+    });
+  }
+
+  async fetchJson() {
+    await this.fetch(true);
+    return this.responseData;
+  }
+
+  private async createRequest() {
+    let requestConfig = cloneRequestConfig(this.config);
 
     let url = (requestConfig.baseUrl || '') + (requestConfig.url || '');
     if (!requestConfig.method) {
@@ -100,46 +152,27 @@ export class AjaxRequest {
     delete requestConfig.context;
     delete requestConfig.onRequest;
 
-    const request = new Request(url, requestConfig);
-    this.request = request;
-    if (this.config.client) {
-      this.config.client.requests.push(this);
-    }
-    // TODO: Handle timeout via fetch signal.
-    // NOTE: Previous implementation of AbortSignal caused login to fail.
-    return await fetch(request).then(async (response: Response) => {
-      this.response = response;
-      if (!response.ok) {
-        const contentType = response.headers.get('Content-Type') || '';
-        let responseData;
-        if (contentType.indexOf('application/json') !== -1) {
-          const responseClone = response.clone();
-          try {
-            responseData = await response.json();
-          } catch (error) {
-            const contentLength = response.headers.get('Content-Length');
-            if (!contentLength || parseInt(contentLength, 10) !== 0) {
-              const body = await responseClone.text();
-              if (body.length) {
-                throw new ResponseError(request, response, responseData,
-                  'Response error: Failed to parse body with application/json content type');
-              }
-            }
-          }
-        }
-        throw new ResponseError(request, response, responseData, `Response error: status ${response.status} ${response.statusText}`);
-      }
-      return response;
-    });
+    return new Request(url, requestConfig);
   }
 
-  fetchJson() {
-    return this.fetch()
-      .then((response: Response) => response.json())
-      .then((data: any) => {
-        this.responseData = data;
-        return data;
-      });
+  async parseJsonFromResponse() {
+    const request = this.request!;
+    const response = this.response!;
+    let responseData;
+    const responseClone = response.clone();
+    try {
+      responseData = await response.json();
+    } catch (error) {
+      const contentLength = response.headers.get('Content-Length');
+      if (!contentLength || parseInt(contentLength, 10) !== 0) {
+        const body = await responseClone.text();
+        if (body.length) {
+          throw new ResponseError(request, response, responseData,
+            'Response error: Failed to parse body with application/json content type');
+        }
+      }
+    }
+    return responseData;
   }
 }
 
