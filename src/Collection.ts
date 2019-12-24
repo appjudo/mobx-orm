@@ -17,7 +17,7 @@ abstract class BaseCollection<T extends ModelObject> {
 
   constructor(source: Repository<T>, options: CollectionOptions = {}) {
     this._source = source;
-    this._options = observable(Object.assign({filters: {}}, options));
+    this._options = observable({filters: {}, ...options});
   }
 
   abstract get data(): (ObservableList<T> | PaginatedObservableList<T>);
@@ -81,7 +81,7 @@ abstract class BaseCollection<T extends ModelObject> {
   }
 
   filter(filters: {[key: string]: string}) {
-    return this._clone({filters: Object.assign({}, this._options.filters, filters)});
+    return this._clone({filters: {...this._options.filters, ...filters}});
   }
 
   reverse() {
@@ -111,7 +111,7 @@ export default class Collection<T extends ModelObject> extends BaseCollection<T>
   constructor(source: Repository<T>, options: CollectionOptions = {}) {
     super(source, options);
     this._source = source;
-    this._options = observable(Object.assign({filters: {}}, options));
+    this._options = observable({filters: {}, ...options});
   }
 
   /**
@@ -132,7 +132,7 @@ export default class Collection<T extends ModelObject> extends BaseCollection<T>
   }
 
   protected _clone(options: CollectionOptions) {
-    options = Object.assign({}, this._options, options);
+    options = {...this._options, ...options};
     return new Collection(this._source, options);
   }
 }
@@ -173,7 +173,7 @@ export class PaginatedCollection<T extends ModelObject> extends BaseCollection<T
   }
 
   protected _clone(options: CollectionOptions) {
-    options = Object.assign({}, this._options, options);
+    options = {...this._options, ...options};
     return new PaginatedCollection(this._source, options);
   }
 }

@@ -30,7 +30,7 @@ export default class MockRepository<T extends ModelObject> extends Repository<T>
 
   constructor(config: MockRepositoryConfig<T> = {}, data?: List<T>) {
     super();
-    this._config = Object.assign({filter: {}, sort: {}}, config);
+    this._config = {filter: {}, sort: {}, ...config};
     this._data = observable.array();
     if (data) {
       this.setData(data);

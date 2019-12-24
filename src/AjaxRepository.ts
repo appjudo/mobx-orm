@@ -31,6 +31,7 @@ export interface AjaxRepositoryConfig<T> {
   collectionRequestConfigModifier?: ListRequestConfigModifier<T>;
   collectionResponseMapper?: ListResponseMapper<T>;
 
+  memberBaseUrl?: Url<T>;
   memberUrl?: DynamicUrl<T>;
   memberRequestConfigModifier?: ItemRequestConfigModifier<T>;
   memberResponseMapper?: ItemResponseMapper<T>;
@@ -78,13 +79,17 @@ export default class AjaxRepository<T extends ModelObject> extends Repository<T>
   client?: AjaxClient;
   baseUrl?: string;
 
-  collectionUrl?: StaticUrl = '';
+  collectionUrl: StaticUrl = '';
   collectionRequestConfigModifier?: ListRequestConfigModifier<T>;
   collectionResponseMapper: ListResponseMapper<T> = (data: any) => data;
 
+  memberBaseUrl: Url<T> = function (this: AjaxRepository<T>) {
+    return this.collectionUrl;
+  };
   memberUrl: DynamicUrl<T> = function (this: AjaxRepository<T>, value: Id | T) {
+    const memberBaseUrl = typeof this.memberBaseUrl === 'string' ? this.memberBaseUrl : this.memberBaseUrl(value);
     const id = this.getMemberId(value);
-    return `${this.collectionUrl}/${id}`;
+    return `${memberBaseUrl}/${id}`;
   };
   memberRequestConfigModifier?: ItemRequestConfigModifier<T>;
   memberResponseMapper: ItemResponseMapper<T> = (data: any) => data;

@@ -34,3 +34,11 @@ export interface LocalStorage {
 export interface ModelObject {
   id?: Id;
 }
+
+export type Constructor<T> = new (...args: any[]) => T;
+
+export type InstantiableParameter<T> = T | ConstructorParameters<Constructor<T>>[0];
+
+export function instantiate<T>(klass: Constructor<T>, params: InstantiableParameter<T>): T {
+  return (params instanceof klass) ? params : new klass(params);
+}
