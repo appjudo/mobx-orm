@@ -72,8 +72,15 @@ abstract class BaseCollection<T extends ModelObject> {
     return result;
   }
 
-  @action async deleteAll() {
-    return await this._source.deleteAll();
+  @action async deleteAll(remove: boolean = false) {
+    const result = await this._source.deleteAll();
+    if (remove && this._data) {
+      if (this._data.isLoading) {
+        await this._data.promise;
+      }
+      this._data.splice(0, this.length);
+    }
+    return result;
   }
 
   sort(sort: string) {
