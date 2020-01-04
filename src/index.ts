@@ -20,4 +20,9 @@ export { default as MockRepository, MockRepositoryConfig } from './MockRepositor
 export { default as Model } from './Model';
 export { default as Repository, EmptyRepository } from './Repository';
 export * from './types';
-export { getObservableListFromArray, getObservableListFromProvider } from './ObservableList';
+export {
+  default as ObservableList,
+  getObservableListFromArray,
+  getObservableListFromProvider,
+  PaginatedObservableList,
+} from './ObservableList';
