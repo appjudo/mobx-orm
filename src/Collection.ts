@@ -87,7 +87,7 @@ abstract class BaseCollection<T extends ModelObject> {
     return this._clone({sort});
   }
 
-  filter(filters: {[key: string]: string}) {
+  filter(filters: Record<string, string | undefined>) {
     return this._clone({filters: {...this._options.filters, ...filters}});
   }
 

@@ -15,7 +15,7 @@ export interface CollectionOptions {
   /** Name of sort type to apply. */
   sort?: string;
   /** Filter names/values to apply. */
-  filters?: Record<string, string>;
+  filters?: Record<string, string | undefined>;
   /** True if the sort should be reversed. */
   reverse?: boolean;
   /** Search keywords query string. */
