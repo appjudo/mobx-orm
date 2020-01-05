@@ -21,8 +21,9 @@ abstract class BaseCollection<T extends ModelObject> {
   }
 
   abstract get data(): (ObservableList<T> | PaginatedObservableList<T>);
+
+  /* Deprecated. Use [[data]] instead. */
   abstract get all(): (ObservableList<T> | PaginatedObservableList<T>);
-  protected abstract _clone(options: CollectionOptions): (Collection<T> | PaginatedCollection<T>);
 
   /** True if the collection is loading new or more data. */
   @computed get isLoading(): boolean {
@@ -110,6 +111,11 @@ abstract class BaseCollection<T extends ModelObject> {
   find(predicate: (item: T) => boolean) {
     return this.data.find(predicate);
   }
+
+  protected _clone(options: CollectionOptions): this {
+    options = {...this._options, ...options};
+    return new (<any> this.constructor)(this._source, options);
+  }
 }
 
 export default class Collection<T extends ModelObject> extends BaseCollection<T> {
@@ -134,13 +140,9 @@ export default class Collection<T extends ModelObject> extends BaseCollection<T>
     return this._data;
   }
 
+  /* Deprecated. Use [[data]] instead. */
   @computed get all(): ObservableList<T> {
     return this.data;
-  }
-
-  protected _clone(options: CollectionOptions) {
-    options = {...this._options, ...options};
-    return new Collection(this._source, options);
   }
 }
 
@@ -171,17 +173,13 @@ export class PaginatedCollection<T extends ModelObject> extends BaseCollection<T
     return this._data as PaginatedObservableList<T>;
   }
 
+  /* Deprecated. Use [[data]] instead. */
   @computed get all(): PaginatedObservableList<T> {
     return this.data;
   }
 
   pageSize(pageSize: number): PaginatedCollection<T> {
     return this._clone({pageSize});
-  }
-
-  protected _clone(options: CollectionOptions) {
-    options = {...this._options, ...options};
-    return new PaginatedCollection(this._source, options);
   }
 }
 
