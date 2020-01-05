@@ -5,7 +5,7 @@ import { Id, CollectionOptions } from './types';
 
 export type RequestConfigModifier = (requestConfig: AjaxRequestConfig, value: string) => void;
 export type FilterRequestConfigModifier =
-  (requestConfig: AjaxRequestConfig, filters: Record<string, string>) => void;
+  (requestConfig: AjaxRequestConfig, filters: Record<string, string | undefined>) => void;
 
 export type ItemRequestConfigModifier<T> = (requestConfig: AjaxRequestConfig, item: T) => void;
 export type ListRequestConfigModifier<T> =

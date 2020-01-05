@@ -7,7 +7,7 @@ import Repository from './Repository';
 import { List, CollectionOptions, ModelObject } from './types';
 import { getObservableListFromArray } from './ObservableList';
 
-type FilterFunction<T> = (value: string) => ((item: T) => boolean);
+type FilterFunction<T> = (value: string | undefined) => ((item: T) => boolean);
 type SortByIteratee<T> = string | ((a: T) => any);
 type SortByIteratees<T> = SortByIteratee<T>[];
 type SortComparator<T> = (a: T, b: T) => number;
