@@ -95,7 +95,7 @@ abstract class BaseCollection<T extends ModelObject> {
     return this._clone({reverse: !this._options.reverse});
   }
 
-  search(search: string) {
+  search(search: string | undefined) {
     return this._clone({search});
   }
 
