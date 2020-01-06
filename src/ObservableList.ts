@@ -139,6 +139,7 @@ export function getObservableListFromProvider<T>(provider: ListProvider<T>): Obs
     provider,
     reload,
     preload,
+    metadata: undefined,
     promise: provider().then(action((data: List<T>) => {
       list.isLoading = false;
       list.replace(data || []);
@@ -216,6 +217,7 @@ export function getPaginatedObservableListFromProvider<T>(
     pageSize,
     isFullyLoaded: false,
     getNextPage,
+    metadata: undefined,
     promise: provider(pageSize, pageIndex).then(action((data: List<T>) => {
       const startIndex = pageSize * pageIndex;
       for (let index = 0; index < data.length; index++) {
