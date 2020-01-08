@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2019 AppJudo Inc.  MIT License.
+// Copyright (c) 2017-2020 AppJudo Inc.  MIT License.
 
 export { default as ObservableList, List, PaginatedObservableList } from './ObservableList';
 import { List } from './ObservableList';

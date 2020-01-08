@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2019 AppJudo Inc.  MIT License.
+// Copyright (c) 2017-2020 AppJudo Inc.  MIT License.
 
 import { action, extendObservable, observable, IObservableArray } from 'mobx';
 
