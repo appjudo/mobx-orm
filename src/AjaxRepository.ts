@@ -10,6 +10,7 @@ import AjaxClient, {
   ListRequestConfigModifier,
   RequestConfigModifier,
 } from './AjaxClient';
+import Model from './Model';
 import Repository from './Repository';
 import {
   DynamicUrl,
@@ -73,9 +74,7 @@ export interface AjaxRepositoryConfig<T> {
   requestContext?: () => any;
 }
 
-export default class AjaxRepository<T extends ModelObject> extends Repository<T> {
-  idKey: keyof T = 'id';
-
+export default class AjaxRepository<T extends Model<any>> extends Repository<T> {
   client?: AjaxClient;
   baseUrl?: string;
 
@@ -130,9 +129,12 @@ export default class AjaxRepository<T extends ModelObject> extends Repository<T>
 
   requestContext?: () => any;
 
+  modelObjectCache: Record<Id, T>;
+
   constructor(config: AjaxRepositoryConfig<T>) {
     super();
     Object.assign(this, config);
+    this.modelObjectCache = {};
   }
 
   @action list(options: CollectionOptions = {}, pageIndex?: number): Promise<List<T>> {
@@ -143,25 +145,53 @@ export default class AjaxRepository<T extends ModelObject> extends Repository<T>
     if (requestConfigModifier) requestConfigModifier(request.config, options, pageIndex);
 
     const responseMapper = this.listResponseMapper || this.collectionResponseMapper;
-    return request.fetchJson().then((data: any) => responseMapper(data, request.config.context));
+    return request.fetchJson()
+      .then((data: any) => responseMapper(data, request.config.context))
+      .then(this.cacheList);
   }
 
-  @action getById(id: string): Promise<T | undefined> {
+  @action getById(id: string, reload: boolean = false): Promise<T | undefined> {
     if (!id) throw new Error('AjaxRepository method \'getById\' called without id argument');
+
+    const cachedItem = this.modelObjectCache[id];
+    if (cachedItem) {
+      if (cachedItem._isLoading) {
+        return cachedItem._promise!;
+      }
+      if (cachedItem.isFullyLoaded && !reload) {
+        return Promise.resolve(cachedItem);
+      }
+    }
 
     const request = this.createRequest(this.getByIdUrl || this.memberUrl, this.getByIdMethod, id);
     const requestConfigModifier = this.getByIdRequestConfigModifier;
     if (requestConfigModifier) requestConfigModifier(request.config, id);
 
     const responseMapper = this.getByIdResponseMapper || this.memberResponseMapper;
-    return request.fetchJson()
-      .then((data: any) => responseMapper(data, request.config.context))
+    const promise = request.fetchJson()
       .catch((error: any) => {
         if (error.response && error.response.status === 404) {
           return undefined;
         }
         throw error;
-      });
+      })
+      .then((data: any) => responseMapper(data, request.config.context))
+      .then(this.cacheMember)
+      .then(action((item?: T) => {
+        if (item) item._isLoading = false;
+        if (cachedItem) cachedItem._isLoading = false;
+        return item;
+      }));
+
+    if (cachedItem) {
+      cachedItem._promise = promise;
+      cachedItem._isLoading = true;
+      if (!reload) {
+        return Promise.resolve(cachedItem);
+      }
+    }
+
+    return promise;
   }
 
   @action add(item: T): Promise<T | undefined> {
@@ -172,7 +202,9 @@ export default class AjaxRepository<T extends ModelObject> extends Repository<T>
     if (requestConfigModifier) requestConfigModifier(request.config, item);
 
     const responseMapper = this.addResponseMapper || this.memberResponseMapper;
-    return request.fetchJson().then((data: any) => responseMapper(data, request.config.context));
+    return request.fetchJson()
+      .then((data: any) => responseMapper(data, request.config.context))
+      .then(this.cacheMember);
   }
 
   @action update(item: T): Promise<T | undefined> {
@@ -183,7 +215,9 @@ export default class AjaxRepository<T extends ModelObject> extends Repository<T>
     if (requestConfigModifier) requestConfigModifier(request.config, item);
 
     const responseMapper = this.updateResponseMapper || this.memberResponseMapper;
-    return request.fetchJson().then((data: any) => responseMapper(data, request.config.context));
+    return request.fetchJson()
+      .then((data: any) => responseMapper(data, request.config.context))
+      .then(this.cacheMember);
   }
 
   @action delete(item: T): Promise<any> {
@@ -194,7 +228,12 @@ export default class AjaxRepository<T extends ModelObject> extends Repository<T>
     if (requestConfigModifier) requestConfigModifier(request.config, item);
 
     const responseMapper = this.deleteResponseMapper || this.memberResponseMapper;
-    return request.fetchJson().then((data: any) => responseMapper(data, request.config.context));
+    return request.fetchJson()
+      .then((data: any) => responseMapper(data, request.config.context))
+      .then((result: any) => {
+        this.uncacheItem(item);
+        return result;
+      });
   }
 
   @action deleteAll(options: CollectionOptions = {}): Promise<any> {
@@ -204,8 +243,51 @@ export default class AjaxRepository<T extends ModelObject> extends Repository<T>
     if (requestConfigModifier) requestConfigModifier(request.config, options);
 
     const responseMapper = this.deleteAllResponseMapper || this.collectionResponseMapper;
-    return request.fetchJson().then((data: any) => responseMapper(data, request.config.context));
+    return request.fetchJson()
+      .then((data: any) => responseMapper(data, request.config.context))
+      .then((items: T[]) => {
+        items.forEach(this.uncacheItem);
+        return items;
+      });
   }
+
+  @action reload(item: T): Promise<T | undefined> {
+    if (!item.id) {
+      throw new Error('Item must have `id` to reload');
+    }
+    if (!this.modelObjectCache[item.id]) {
+      // Cache item so that getById will update this item instead of caching a different instance.
+      this.modelObjectCache[item.id] = item;
+    }
+    return this.getById(item.id, true);
+  }
+
+  private cacheList = action((list: List<T>) => {
+    list.forEach((item: T, index: number) => {
+      list[index] = this.cacheItem(item);
+    });
+    return list;
+  });
+
+  private cacheMember = action((item?: T) => {
+    return item ? this.cacheItem(item) : item;
+  });
+
+  private cacheItem = action((item: T) => {
+    const itemId = item[this.idKey] as unknown as Id;
+    const cachedItem = this.modelObjectCache[itemId];
+    if (cachedItem) {
+      Object.assign(cachedItem, item);
+    } else {
+      this.modelObjectCache[itemId] = item;
+    }
+    return cachedItem || item;
+  });
+
+  private uncacheItem = action((item: T) => {
+    const itemId = item[this.idKey] as unknown as Id;
+    delete this.modelObjectCache[itemId];
+  });
 
   private applyCollectionOptionsToRequest(request: AjaxRequest, options: CollectionOptions) {
     if (options.filters && Object.keys(options.filters).length) {

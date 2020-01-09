@@ -131,4 +131,8 @@ export default class MockRepository<T extends ModelObject> extends Repository<T>
     this._data.replace([]);
     return this._data;
   }
+
+  @action async reload(item: T): Promise<T | undefined> {
+    return item;
+  }
 }

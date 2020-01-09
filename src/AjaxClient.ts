@@ -96,7 +96,7 @@ export class AjaxRequest {
           // NOTE: Previous implementation of AbortSignal caused login to fail.
           this.response = await fetch(this.request);
           if (parseJsonBody) {
-            this.responseData = this.parseJsonFromResponse();
+            this.responseData = await this.parseJsonFromResponse();
           }
         }
 
