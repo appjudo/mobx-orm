@@ -275,6 +275,9 @@ export default class AjaxRepository<T extends Model<any>> extends Repository<T> 
 
   private cacheItem = action((item: T) => {
     const itemId = item[this.idKey] as unknown as Id;
+    if (!itemId) {
+      return item;
+    }
     const cachedItem = this.modelObjectCache[itemId];
     if (cachedItem) {
       Object.assign(cachedItem, item);
@@ -286,7 +289,9 @@ export default class AjaxRepository<T extends Model<any>> extends Repository<T> 
 
   private uncacheItem = action((item: T) => {
     const itemId = item[this.idKey] as unknown as Id;
-    delete this.modelObjectCache[itemId];
+    if (itemId) {
+      delete this.modelObjectCache[itemId];
+    }
   });
 
   private applyCollectionOptionsToRequest(request: AjaxRequest, options: CollectionOptions) {
