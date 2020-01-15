@@ -7,6 +7,7 @@ import {
   BaseObservableList,
   getObservableListFromProvider,
   getPaginatedObservableListFromProvider,
+  List,
 } from './ObservableList';
 
 abstract class BaseCollection<T extends ModelObject> {
@@ -143,6 +144,14 @@ export default class Collection<T extends ModelObject> extends BaseCollection<T>
   /* Deprecated. Use [[data]] instead. */
   @computed get all(): ObservableList<T> {
     return this.data;
+  }
+
+  list(initialArray?: List<T>): ObservableList<T> {
+    if (!initialArray) {
+      return this.data;
+    }
+    const provider = () => this._source.list(this._options);
+    return getObservableListFromProvider(provider, initialArray);
   }
 }
 

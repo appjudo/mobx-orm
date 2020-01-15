@@ -132,7 +132,11 @@ function attachMetadata<T>(target: List<T> | PaginatedObservableList<T>, source:
 
 function illegalAccessNoOp() {};
 
-export function getObservableListFromProvider<T>(provider: ListProvider<T>): ObservableList<T> {
+export function getObservableListFromProvider<T>(
+  provider: ListProvider<T>,
+  initialArray?: List<T>,
+): ObservableList<T> {
+  const promise = initialArray ? Promise.resolve(initialArray) : provider();
   const list: ObservableList<T> = extendObservable(getObservableArrayObjectHybrid<T>(), {
     isLoading: true,
     isReloading: false,
@@ -140,7 +144,7 @@ export function getObservableListFromProvider<T>(provider: ListProvider<T>): Obs
     reload,
     preload,
     metadata: undefined,
-    promise: provider().then(action((data: List<T>) => {
+    promise: promise.then(action((data: List<T>) => {
       list.isLoading = false;
       list.replace(data || []);
       if ('metadata' in data) {
