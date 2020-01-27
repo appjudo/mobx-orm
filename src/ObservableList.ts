@@ -1,6 +1,6 @@
 // Copyright (c) 2017-2020 AppJudo Inc.  MIT License.
 
-import { action, extendObservable, observable, IObservableArray } from 'mobx';
+import { action, extendObservable, observable, runInAction, IObservableArray } from 'mobx';
 
 export interface List<T> extends Array<T> {
   metadata?: any;
@@ -36,98 +36,102 @@ export interface PaginatedObservableList<T> extends BaseObservableList<T> {
 }
 
 function preload<T>(this: ObservableList<T>): Promise<List<T>> {
-  if (this.isLoading) {
-    return this.promise;
-  }
-  return this.reload();
+  return this.isLoading ? this.promise : this.reload();
 }
 
 function reload<T>(this: ObservableList<T>, clear: boolean = false): Promise<List<T>> {
-  if (clear) this.replace([]);
-  if (this.isLoading) {
+  return runInAction(() => {
+    if (clear) this.replace([]);
+    if (this.isLoading) {
+      return this.promise;
+    }
+
+    this.error = undefined;
+    this.promise = this.provider().then(action((data: List<T>) => {
+      this.isLoading = false;
+      this.isReloading = false;
+      this.replace(data || []);
+      attachMetadata(this, data);
+      return data;
+    })).catch(action((error: Error) => {
+      this.replace([]);
+      this.isLoading = false;
+      this.isReloading = false;
+      this.error = error;
+      throw error;
+    }));
+
+    this.isLoading = true;
+    this.isReloading = true;
     return this.promise;
-  }
-
-  this.error = undefined;
-  this.promise = this.provider().then(action((data: List<T>) => {
-    this.isLoading = false;
-    this.isReloading = false;
-    this.replace(data || []);
-    attachMetadata(this, data);
-    return data;
-  })).catch(action((error: Error) => {
-    // debugger;
-    this.replace([]);
-    this.isLoading = false;
-    this.isReloading = false;
-    this.error = error;
-    throw error;
-  }));
-
-  this.isLoading = true;
-  this.isReloading = true;
-  return this.promise;
+  });
 }
 
 function paginatedPreload<T>(this: PaginatedObservableList<T>): Promise<List<T>> {
-  if (this.pageIndex > 0) {
-    return Promise.resolve(this.slice());
-  }
-  if (this.isLoading) {
-    return this.promise;
-  }
-  return this.getNextPage();
+  return runInAction(() => {
+    if (this.pageIndex > 0) {
+      return Promise.resolve(this.slice());
+    }
+    if (this.isLoading) {
+      return this.promise;
+    }
+    return this.getNextPage();
+  });
 }
 
 function paginatedReload<T>(this: PaginatedObservableList<T>, clear?: boolean): Promise<List<T>> {
-  if (clear) {
-    this.replace([]);
-    this.isFullyLoaded = false;
-    this.pageIndex = 0;
-    this.totalLength = 0;
-  }
-  if (this.isReloading) {
-    return this.promise;
-  }
-  if (this.isLoading) {
-    // getNextPage is in progress --- force its result to be ignored.
-    this._ignoreNextPage = true;
-  }
-
-  this.error = undefined;
-  const {pageSize} = this;
-  this.promise = this.provider(pageSize, 0).then(action((data: List<T>) => {
-    this.replace([]);
-    this.totalLength = 0;
-    for (let index = 0; index < data.length; index++) {
-      this[index] = data[index];
+  return runInAction(() => {
+    if (clear) {
+      this.replace([]);
+      this.isFullyLoaded = false;
+      this.pageIndex = 0;
+      this.totalLength = 0;
     }
-    this.pageIndex = 1;
-    attachMetadata(this, data);
-    this.isLoading = false;
-    this.isReloading = false;
-    this.isFullyLoaded = this.length >= this.totalLength;
-    return data;
-  })).catch(action((error: Error) => {
-    this.isLoading = false;
-    this.isReloading = false;
-    this.error = error;
-    throw error;
-  }));
+    if (this.isReloading) {
+      return this.promise;
+    }
+    if (this.isLoading) {
+      // getNextPage is in progress --- force its result to be ignored.
+      this._ignoreNextPage = true;
+    }
 
-  this.isLoading = true;
-  this.isReloading = true;
-  return this.promise;
+    this.error = undefined;
+    const {pageSize} = this;
+    this.promise = this.provider(pageSize, 0).then(action((data: List<T>) => {
+      this.replace([]);
+      this.totalLength = 0;
+      for (let index = 0; index < data.length; index++) {
+        this[index] = data[index];
+      }
+      this.pageIndex = 1;
+      attachMetadata(this, data);
+      this.isLoading = false;
+      this.isReloading = false;
+      this.isFullyLoaded = this.length >= this.totalLength;
+      return data;
+    })).catch(action((error: Error) => {
+      this.isLoading = false;
+      this.isReloading = false;
+      this.error = error;
+      throw error;
+    }));
+
+    this.isLoading = true;
+    this.isReloading = true;
+    return this.promise;
+  });
 }
 
 function attachMetadata<T>(target: List<T> | PaginatedObservableList<T>, source: List<T>) {
-  if ('metadata' in source) {
-    target.metadata = source.metadata;
-  }
-  if ('totalLength' in source) {
-    target.totalLength = source.totalLength;
-  }
-  return target;
+  return runInAction(() => {
+    if ('metadata' in source) {
+      target.metadata = source.metadata;
+    }
+    if ('totalLength' in source) {
+      target.totalLength = source.totalLength;
+    }
+    return target;
+  });
 }
 
 function illegalAccessNoOp() {};
@@ -152,7 +156,6 @@ export function getObservableListFromProvider<T>(
       }
       return data;
     })).catch(action((error: Error) => {
-      // debugger;
       list.replace([]);
       list.isLoading = false;
       list.error = error;
@@ -233,7 +236,6 @@ export function getPaginatedObservableListFromProvider<T>(
       list.isFullyLoaded = list.length >= list.totalLength;
       return data;
     })).catch(action((error: Error) => {
-      // debugger;
       list.isLoading = false;
       list.error = error;
       throw error;
