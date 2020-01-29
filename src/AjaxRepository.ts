@@ -261,14 +261,14 @@ export default class AjaxRepository<T extends Model<any>> extends Repository<T> 
     return this.getById(item.id, true);
   }
 
-  private cacheList = action((list: List<T>) => {
+  protected cacheList = action((list: List<T>) => {
     list.forEach((item: T, index: number) => {
       list[index] = this.cacheItem(item);
     });
     return list;
   });
 
-  private cacheMember = action((item?: T) => {
+  protected cacheMember = action((item?: T) => {
     return item && this.cacheItem(item);
   });
 
@@ -287,14 +287,14 @@ export default class AjaxRepository<T extends Model<any>> extends Repository<T> 
     return cachedItem || item;
   });
 
-  private uncacheItem = action((item: T) => {
+  protected uncacheItem = action((item: T) => {
     const itemId = item[this.idKey] as unknown as Id;
     if (itemId) {
       delete this.modelObjectCache[itemId];
     }
   });
 
-  private applyCollectionOptionsToRequest(request: AjaxRequest, options: CollectionOptions) {
+  protected applyCollectionOptionsToRequest(request: AjaxRequest, options: CollectionOptions) {
     if (options.filters && Object.keys(options.filters).length) {
       const filterFunction = this.filter;
       if (!filterFunction) throw new Error('AjaxRepository instance has no filter function');
@@ -312,7 +312,7 @@ export default class AjaxRepository<T extends Model<any>> extends Repository<T> 
     }
   }
 
-  private createRequest(url?: Url<T>, method?: string, value?: Id | T) {
+  protected createRequest(url?: Url<T>, method?: string, value?: Id | T) {
     if (url && typeof url !== 'string') {
       if (!value) throw new Error('Must provide item for dynamic URL');
       url = url.call(this, value);

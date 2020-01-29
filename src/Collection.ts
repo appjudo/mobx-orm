@@ -11,13 +11,13 @@ import {
 } from './ObservableList';
 
 abstract class BaseCollection<T extends ModelObject> {
-  @observable protected _source: Repository<T>;
+  @observable protected _repository: Repository<T>;
   @observable protected _options: CollectionOptions;
 
   protected _data?: BaseObservableList<T>;
 
-  constructor(source: Repository<T>, options: CollectionOptions = {}) {
-    this._source = source;
+  constructor(repository: Repository<T>, options: CollectionOptions = {}) {
+    this._repository = repository;
     this._options = observable({filters: {}, ...options});
   }
 
@@ -25,6 +25,10 @@ abstract class BaseCollection<T extends ModelObject> {
 
   /* Deprecated. Use [[data]] instead. */
   abstract get all(): (ObservableList<T> | PaginatedObservableList<T>);
+
+  @computed get repository() {
+    return this._repository;
+  }
 
   /** True if the collection is loading new or more data. */
   @computed get isLoading(): boolean {
@@ -37,11 +41,11 @@ abstract class BaseCollection<T extends ModelObject> {
   }
 
   async getById(id: string, reload: boolean = false) {
-    return await this._source.getById(id, reload);
+    return await this._repository.getById(id, reload);
   }
 
   @action async add(item: T, append: boolean = false) {
-    const result = await this._source.add(item);
+    const result = await this._repository.add(item);
     if (append && this._data) {
       if (this._data.isLoading) {
         try {
@@ -57,11 +61,11 @@ abstract class BaseCollection<T extends ModelObject> {
   }
 
   @action async update(item: T) {
-    return await this._source.update(item);
+    return await this._repository.update(item);
   }
 
   @action async delete(item: T, remove: boolean = false) {
-    const result = await this._source.delete(item);
+    const result = await this._repository.delete(item);
     if (remove && this._data) {
       if (this._data.isLoading) {
         await this._data.promise;
@@ -75,7 +79,7 @@ abstract class BaseCollection<T extends ModelObject> {
   }
 
   @action async deleteAll(remove: boolean = false) {
-    const result = await this._source.deleteAll();
+    const result = await this._repository.deleteAll();
     if (remove && this._data) {
       if (this._data.isLoading) {
         await this._data.promise;
@@ -115,16 +119,16 @@ abstract class BaseCollection<T extends ModelObject> {
 
   protected _clone(options: CollectionOptions): this {
     options = {...this._options, ...options};
-    return new (<any> this.constructor)(this._source, options);
+    return new (<any> this.constructor)(this._repository, options);
   }
 }
 
 export default class Collection<T extends ModelObject> extends BaseCollection<T> {
   protected _data?: ObservableList<T>;
 
-  constructor(source: Repository<T>, options: CollectionOptions = {}) {
-    super(source, options);
-    this._source = source;
+  constructor(repository: Repository<T>, options: CollectionOptions = {}) {
+    super(repository, options);
+    this._repository = repository;
     this._options = observable({filters: {}, ...options});
   }
 
@@ -135,7 +139,7 @@ export default class Collection<T extends ModelObject> extends BaseCollection<T>
    */
   @computed get data(): ObservableList<T> {
     if (!this._data) {
-      const provider = () => this._source.list(this._options);
+      const provider = () => this._repository.list(this._options);
       this._data = getObservableListFromProvider(provider);
     }
     return this._data;
@@ -150,7 +154,7 @@ export default class Collection<T extends ModelObject> extends BaseCollection<T>
     if (!initialArray) {
       return this.data;
     }
-    const provider = () => this._source.list(this._options);
+    const provider = () => this._repository.list(this._options);
     return getObservableListFromProvider(provider, initialArray);
   }
 }
@@ -160,9 +164,8 @@ const DEFAULT_PAGE_SIZE = 10;
 export class PaginatedCollection<T extends ModelObject> extends BaseCollection<T> {
   protected _data?: PaginatedObservableList<T>;
 
-  constructor(source: Repository<T>, options: CollectionOptions = {}) {
-    super(source, options);
-    super(source, options);
+  constructor(repository: Repository<T>, options: CollectionOptions = {}) {
+    super(repository, options);
     if (!this._options.pageSize) {
       extendObservable(this._options, {pageSize: DEFAULT_PAGE_SIZE});
     }
@@ -176,7 +179,7 @@ export class PaginatedCollection<T extends ModelObject> extends BaseCollection<T
   @computed get data(): PaginatedObservableList<T> {
     if (!this._data) {
       const provider = (pageSize?: number, pageIndex: number = 0) =>
-        this._source.list(this._options, pageIndex);
+        this._repository.list(this._options, pageIndex);
       this._data = getPaginatedObservableListFromProvider(provider, this._options.pageSize!);
     }
     return this._data as PaginatedObservableList<T>;
