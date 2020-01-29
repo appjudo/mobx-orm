@@ -19,7 +19,6 @@ import {
   List,
   CollectionOptions,
   ListResponseMapper,
-  ModelObject,
   StaticUrl,
   Url,
 } from './types';

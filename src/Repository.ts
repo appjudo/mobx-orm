@@ -8,7 +8,7 @@ export default abstract class Repository<T extends ModelObject> {
   idKey: keyof T = 'id';
 
   abstract async list(options?: CollectionOptions, pageIndex?: number): Promise<List<T>>;
-  abstract async getById(id: string): Promise<T | undefined>;
+  abstract async getById(id: string, reload: boolean): Promise<T | undefined>;
   abstract async add(item: T): Promise<T | undefined>;
   abstract async update(item: T): Promise<T | undefined>;
   abstract async delete(item: T): Promise<any>;

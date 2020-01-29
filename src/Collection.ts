@@ -36,8 +36,8 @@ abstract class BaseCollection<T extends ModelObject> {
     return this.data.length;
   }
 
-  async getById(id: string) {
-    return await this._source.getById(id);
+  async getById(id: string, reload: boolean = false) {
+    return await this._source.getById(id, reload);
   }
 
   @action async add(item: T, append: boolean = false) {
