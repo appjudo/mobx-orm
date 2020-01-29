@@ -269,10 +269,11 @@ export default class AjaxRepository<T extends Model<any>> extends Repository<T> 
   });
 
   private cacheMember = action((item?: T) => {
-    return item ? this.cacheItem(item) : item;
+    return item && this.cacheItem(item);
   });
 
   private cacheItem = action((item: T) => {
+    item.repository = this;
     const itemId = item[this.idKey] as unknown as Id;
     if (!itemId) {
       return item;
