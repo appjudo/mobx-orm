@@ -9,14 +9,10 @@ export default abstract class Model<T extends ModelObject> {
   @observable id?: Id;
   @observable _isLoading: boolean = false;
   @observable _promise?: Promise<T | undefined>;
-  @observable protected _repository?: Repository<T>;
+  @observable repository?: Repository<T>;
 
   get isFullyLoaded(): boolean {
     return true;
-  }
-
-  @computed get repository() {
-    return this._repository;
   }
 
   @action update(values: Partial<T> = {}) {
@@ -25,7 +21,7 @@ export default abstract class Model<T extends ModelObject> {
   }
 
   @action save(repository?: Repository<T>) {
-    if (!repository) repository = this._repository;
+    if (!repository) repository = this.repository;
     if (!repository) {
       throw new Error('Model `save` method called without repository');
     }
@@ -34,7 +30,7 @@ export default abstract class Model<T extends ModelObject> {
   }
 
   @action reload(repository?: Repository<T>) {
-    if (!repository) repository = this._repository;
+    if (!repository) repository = this.repository;
     if (!repository) {
       throw new Error('Model `reload` method called without repository');
     }
