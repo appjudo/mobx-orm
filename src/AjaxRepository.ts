@@ -23,7 +23,7 @@ import {
   Url,
 } from './types';
 
-export interface AjaxRepositoryConfig<T> {
+export interface AjaxRepositoryConfig<T extends Model<any>> {
   client?: AjaxClient;
   baseUrl?: string;
 
@@ -70,7 +70,7 @@ export interface AjaxRepositoryConfig<T> {
   search?: RequestConfigModifier;
   filter?: FilterRequestConfigModifier;
 
-  requestContext?: () => any;
+  requestContext?: (repository: AjaxRepository<T>) => any;
 }
 
 export default class AjaxRepository<T extends Model<any>> extends Repository<T> {
@@ -126,7 +126,7 @@ export default class AjaxRepository<T extends Model<any>> extends Repository<T> 
   search?: RequestConfigModifier;
   filter?: FilterRequestConfigModifier;
 
-  requestContext?: () => any;
+  requestContext?: (repository: this) => any;
 
   modelObjectCache: Record<Id, T>;
 
@@ -272,7 +272,7 @@ export default class AjaxRepository<T extends Model<any>> extends Repository<T> 
     return item && this.cacheItem(item);
   });
 
-  private cacheItem = action((item: T) => {
+  cacheItem = action((item: T) => {
     item.repository = this;
     const itemId = item[this.idKey] as unknown as Id;
     if (!itemId) {
@@ -321,9 +321,7 @@ export default class AjaxRepository<T extends Model<any>> extends Repository<T> 
     if (method) {
       options.method = method;
     }
-    if (this.requestContext) {
-      options.context = this.requestContext();
-    }
+    options.context = this.requestContext ? this.requestContext(this) : {repository: this};
     if (!this.client) {
       this.client = new AjaxClient();
     }
