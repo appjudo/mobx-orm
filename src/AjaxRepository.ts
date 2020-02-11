@@ -244,7 +244,14 @@ export default class AjaxRepository<T extends Model<any>> extends Repository<T> 
     const responseMapper = this.deleteAllResponseMapper || this.collectionResponseMapper;
     return request.fetchJson()
       .then((data: any) => responseMapper(data, request.config.context))
-      .then((items: T[]) => {
+      .then((items: T[] | boolean) => {
+        if (items === true) {
+          this.resetCache();
+          return [];
+        }
+        if (items === false) {
+          throw new Error('Unexpected response to deleteAll request');
+        }
         items.forEach(this.uncacheItem);
         return items;
       });
@@ -292,6 +299,10 @@ export default class AjaxRepository<T extends Model<any>> extends Repository<T> 
     if (itemId) {
       delete this.modelObjectCache[itemId];
     }
+  });
+
+  protected resetCache = action(() => {
+    this.modelObjectCache = {};
   });
 
   protected applyCollectionOptionsToRequest(request: AjaxRequest, options: CollectionOptions) {
