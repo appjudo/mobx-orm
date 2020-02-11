@@ -18,6 +18,7 @@ import {
   ItemResponseMapper,
   List,
   CollectionOptions,
+  ListDeleteAllResponseMapper,
   ListResponseMapper,
   StaticUrl,
   Url,
@@ -64,7 +65,7 @@ export interface AjaxRepositoryConfig<T extends Model<any>> {
   deleteAllMethod?: string;
   deleteAllUrl?: StaticUrl;
   deleteAllRequestConfigModifier?: ListRequestConfigModifier<T>;
-  deleteAllResponseMapper?: ListResponseMapper<any>;
+  deleteAllResponseMapper?: ListDeleteAllResponseMapper<any>;
 
   sort?: RequestConfigModifier;
   search?: RequestConfigModifier;

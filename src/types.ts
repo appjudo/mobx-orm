@@ -10,6 +10,7 @@ export type Url<T> = StaticUrl | DynamicUrl<T>;
 
 export type ItemResponseMapper<T> = (data: any, context: any) => T | undefined;
 export type ListResponseMapper<T> = (data: any, context: any) => List<T>;
+export type ListDeleteAllResponseMapper<T> = (data: any, context: any) => List<T> | boolean;
 
 export interface CollectionOptions {
   /** Name of sort type to apply. */
