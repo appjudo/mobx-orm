@@ -11,16 +11,29 @@ export type ItemRequestConfigModifier<T> = (requestConfig: AjaxRequestConfig, it
 export type ListRequestConfigModifier<T> =
   (requestConfig: AjaxRequestConfig, options: CollectionOptions, pageIndex?: number) => void;
 
+interface ResponseErrorOptions {
+  request: Request;
+  requestConfig: AjaxRequestConfig;
+  requestAttemptIndex?: number;
+  response: Response;
+  responseData?: any;
+}
+
 export class ResponseError extends Error {
   request: Request;
+  requestConfig: AjaxRequestConfig;
+  requestAttemptIndex: number;
   response: Response;
   responseData?: any;
 
-  constructor(request: Request, response: Response, responseData?: any, ...args: any[]) {
+  constructor(options: ResponseErrorOptions, ...args: any[]) {
     super(...args);
-    this.request = request;
-    this.response = response;
-    this.responseData = responseData;
+    
+    this.request = options.request;
+    this.requestConfig = options.requestConfig;
+    this.requestAttemptIndex = options.requestAttemptIndex || 0;
+    this.response = options.response;
+    this.responseData = options.responseData;
   }
 }
 
@@ -42,6 +55,7 @@ export interface AjaxRequestConfig extends RequestInit {
 
   onRequest?: (request: AjaxRequest) => Promise<boolean> | boolean;
   onResponse?: (response: Response, request: AjaxRequest) => Promise<boolean> | boolean;
+  onResponseError?: (responseError: ResponseError, retry: Function, reject: Function) => Promise<boolean> | boolean;
 }
 
 const NESTED_OBJECT_KEYS: (keyof AjaxRequestConfig)[] = ['headers', 'queryParams', 'bodyParams'];
@@ -71,19 +85,21 @@ export class AjaxRequest {
   request?: Request;
   response?: Response;
   responseData?: any;
+  retrying?: boolean;
 
   constructor(config: AjaxRequestConfig) {
     this.config = config;
   }
 
-  fetch(parseJsonBody: Boolean = false): Promise<Response> {
+  fetch(parseJsonBody: Boolean = false, attemptIndex: number = 0): Promise<Response> {
     return new Promise<Response>(async (resolve, reject) => {
       try {
         if (this.config.onRequest) {
           const shouldContinueMakingRequest = await this.config.onRequest(this);
           if (!shouldContinueMakingRequest) return;
         }
-        this.request = await this.createRequest();
+        const [url, requestOptions] = await this.prepareRequestParams();
+        this.request = new Request(url, requestOptions);
         if (this.config.client) {
           this.config.client.requests.push(this);
           if (this.config.client.responseOverride) {
@@ -105,16 +121,38 @@ export class AjaxRequest {
           if (!shouldContinueHandlingResponse) return;
         }
 
-        if (!this.response.ok) {
-          throw new ResponseError(
-            this.request,
-            this.response,
-            this.responseData,
-            `Response error: status ${this.response.status} ${this.response.statusText}`,
-          );
+        if (this.response.ok) {
+          resolve(this.response);
+          return;
         }
 
-        resolve(this.response);
+        const responseError = new ResponseError(
+          {
+            request: this.request,
+            requestConfig: this.config,
+            requestAttemptIndex: attemptIndex,
+            response: this.response,
+            responseData: this.responseData,
+          },
+          `Response error: status ${this.response.status} ${this.response.statusText}`,
+        );
+        
+        if (this.config.onResponseError) {
+          const retry = (requestConfig?: AjaxRequestConfig) => {
+            this.retrying = true;
+            if (requestConfig) this.config = requestConfig;
+            resolve(this.fetch(parseJsonBody, attemptIndex + 1));
+          };
+          try {
+            const shouldContinueHandlingResponse = await this.config.onResponseError(responseError, retry, reject);
+            if (!shouldContinueHandlingResponse) return;
+          } catch (error) {
+            reject(error);
+            return;
+          }
+        }
+
+        reject(responseError);
       } catch (error) {
         reject(error);
       }
@@ -126,7 +164,7 @@ export class AjaxRequest {
     return this.responseData;
   }
 
-  private async createRequest() {
+  private async prepareRequestParams(): Promise<[string, AjaxRequestConfig]> {
     let requestConfig = cloneRequestConfig(this.config);
 
     let url = (requestConfig.baseUrl || '') + (requestConfig.url || '');
@@ -152,11 +190,12 @@ export class AjaxRequest {
     delete requestConfig.context;
     delete requestConfig.onRequest;
 
-    return new Request(url, requestConfig);
+    return [url, requestConfig];
   }
 
   async parseJsonFromResponse() {
     const request = this.request!;
+    const requestConfig = this.config;
     const response = this.response!;
     let responseData;
     const responseClone = response.clone();
@@ -167,8 +206,10 @@ export class AjaxRequest {
       if (!contentLength || parseInt(contentLength, 10) !== 0) {
         const body = await responseClone.text();
         if (body.length) {
-          throw new ResponseError(request, response, responseData,
-            'Response error: Failed to parse body with application/json content type');
+          throw new ResponseError(
+            {request, requestConfig, response, responseData},
+            'Response error: Failed to parse body with application/json content type',
+          );
         }
       }
     }
