@@ -2,6 +2,7 @@
 
 import qs from 'qs';
 import { Id, CollectionOptions } from './types';
+import { isUndefined } from 'utils/types';
 
 export type RequestConfigModifier = (requestConfig: AjaxRequestConfig, value: string) => void;
 export type FilterRequestConfigModifier =
@@ -44,11 +45,11 @@ export interface AjaxResponseOverride {
   responseData?: any,
 }
 
-export interface AjaxRequestConfig extends RequestInit {
+export interface AjaxRequestConfig extends Omit<RequestInit, 'headers'> {
   client?: AjaxClient;
   baseUrl?: string;
   url?: string;
-  headers: Record<string, string>;
+  headers: Record<string, string | undefined>;
   queryParams: Record<string, string | number | boolean>;
   bodyParams: Record<string, string>;
   context: any;
@@ -98,8 +99,8 @@ export class AjaxRequest {
           const shouldContinueMakingRequest = await this.config.onRequest(this);
           if (!shouldContinueMakingRequest) return;
         }
-        const [url, requestOptions] = await this.prepareRequestParams();
-        this.request = new Request(url, requestOptions);
+        const [url, requestInit] = await this.prepareRequestInit();
+        this.request = new Request(url, requestInit);
         if (this.config.client) {
           this.config.client.requests.push(this);
           if (this.config.client.responseOverride) {
@@ -164,12 +165,18 @@ export class AjaxRequest {
     return this.responseData;
   }
 
-  private async prepareRequestParams(): Promise<[string, AjaxRequestConfig]> {
+  private async prepareRequestInit(): Promise<[string, RequestInit]> {
     let requestConfig = cloneRequestConfig(this.config);
 
     let url = (requestConfig.baseUrl || '') + (requestConfig.url || '');
     if (!requestConfig.method) {
       requestConfig.method = 'GET';
+    }
+
+    for (const name in requestConfig.headers) {
+      if (isUndefined(requestConfig.headers[name])) {
+        delete requestConfig.headers[name];
+      }
     }
 
     const queryParamsString = qs.stringify(requestConfig.queryParams);
@@ -190,7 +197,7 @@ export class AjaxRequest {
     delete requestConfig.context;
     delete requestConfig.onRequest;
 
-    return [url, requestConfig];
+    return [url, requestConfig as RequestInit];
   }
 
   async parseJsonFromResponse() {
