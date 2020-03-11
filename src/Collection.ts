@@ -14,7 +14,7 @@ abstract class BaseCollection<T extends ModelObject> {
   @observable protected _repository: Repository<T>;
   @observable protected _options: CollectionOptions;
 
-  protected _data?: BaseObservableList<T>;
+  protected _data?: BaseObservableList<T> | BaseObservableList<T | undefined>;
 
   constructor(repository: Repository<T>, options: CollectionOptions = {}) {
     this._repository = repository;
@@ -105,18 +105,6 @@ abstract class BaseCollection<T extends ModelObject> {
     return this._clone({search});
   }
 
-  forEach(callback: (item: T) => any): void {
-    this.data.forEach(callback);
-  }
-
-  map<U>(transform: (item: T) => U): U[] {
-    return this.data.map(transform);
-  }
-
-  find(predicate: (item: T) => boolean) {
-    return this.data.find(predicate);
-  }
-
   protected _clone(options: CollectionOptions): this {
     options = {...this._options, ...options};
     return new (<any> this.constructor)(this._repository, options);
@@ -157,6 +145,18 @@ export default class Collection<T extends ModelObject> extends BaseCollection<T>
     const provider = () => this._repository.list(this._options);
     return getObservableListFromProvider(provider, initialArray);
   }
+
+  forEach(callback: (item: T) => any): void {
+    this.data.forEach(callback);
+  }
+
+  map<U>(transform: (item: T) => U): U[] {
+    return this.data.map(transform);
+  }
+
+  find(predicate: (item: T) => boolean) {
+    return this.data.find(predicate);
+  }
 }
 
 const DEFAULT_PAGE_SIZE = 10;
@@ -193,6 +193,18 @@ export class PaginatedCollection<T extends ModelObject> extends BaseCollection<T
   pageSize(pageSize: number): PaginatedCollection<T> {
     return this._clone({pageSize});
   }
+
+  forEach(callback: (item: T | undefined) => any): void {
+    this.data.forEach(callback);
+  }
+
+  map<U>(transform: (item: T | undefined) => U): U[] {
+    return this.data.map(transform);
+  }
+
+  find(predicate: (item: T | undefined) => boolean) {
+    return this.data.find(predicate);
+  }
 }
 
 export class EmptyCollection<T extends ModelObject> extends Collection<T> {
@@ -202,5 +214,7 @@ export class EmptyCollection<T extends ModelObject> extends Collection<T> {
 }
 
 function matches<T extends ModelObject>(item: T) {
-  return (otherItem: T) => (otherItem === item || (otherItem.id ? otherItem.id === item.id : false));
+  return (otherItem: T | undefined) => otherItem
+    ? (otherItem === item || (otherItem.id ? otherItem.id === item.id : false))
+    : false;
 }
