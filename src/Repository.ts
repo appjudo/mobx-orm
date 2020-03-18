@@ -1,8 +1,7 @@
 // Copyright (c) 2017-2020 AppJudo Inc.  MIT License.
 
-import { action, observable } from 'mobx';
-import { CollectionOptions, ModelObject, ObservableList } from './types';
-import { getObservableListFromProvider, List } from './ObservableList';
+import { action } from 'mobx';
+import { CollectionOptions, List, ModelObject, ObservableList } from './types';
 
 export default abstract class Repository<T extends ModelObject> {
   idKey: keyof T = 'id';
@@ -16,7 +15,7 @@ export default abstract class Repository<T extends ModelObject> {
   abstract async reload(item: T): Promise<T | undefined>;
 
   @action listObservable(options?: CollectionOptions): ObservableList<T> {
-    return getObservableListFromProvider(() => this.list(options));
+    return new ObservableList(() => this.list(options));
   }
 }
 
