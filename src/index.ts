@@ -23,6 +23,6 @@ export * from './types';
 export {
   default as ObservableList,
   getObservableListFromArray,
-  getObservableListFromProvider,
+  getPaginatedObservableListFromArray,
   PaginatedObservableList,
 } from './ObservableList';
