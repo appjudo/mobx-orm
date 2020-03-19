@@ -165,7 +165,7 @@ export class PaginatedObservableList<T> extends BaseObservableList<T | undefined
   }
 
   @action preload(): Promise<List<T | undefined>> {
-    if (this.maxLoadedPageIndex > 0) {
+    if (this.totalLength >= 0) {
       return Promise.resolve(this.slice());
     }
     if (this.isLoading) {
@@ -178,7 +178,7 @@ export class PaginatedObservableList<T> extends BaseObservableList<T | undefined
     if (this.isFullyLoaded) {
       return Promise.resolve(attachMetadata([], this) as List<T>);
     }
-    return this.getPageAtIndex(this.maxLoadedPageIndex);
+    return this.getPageAtIndex(this.maxLoadedPageIndex + 1);
   }
 
   @action getPageAtIndex(pageIndex: number): Promise<List<T>> {
