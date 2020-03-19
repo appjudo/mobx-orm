@@ -213,13 +213,13 @@ export class PaginatedObservableList<T> extends BaseObservableList<T | undefined
         pages[pageIndex] = data;
         list.pages.replace(pages);
         list.maxLoadedPageIndex = Math.max(this.maxLoadedPageIndex, pageIndex + 1);
-
         list.loadingPageCount--;
-        this.isLoading = !!list.loadingPageCount;
-        if (!this.isLoading && list !== this) {
+
+        this.isLoading = !!(this.nextVersion || this).loadingPageCount;
+        if (!this.isLoading && this.nextVersion) {
           // Copy nextVersion back to this.
-          this.replace(list);
-          Object.assign(this, list);
+          this.replace(this.nextVersion);
+          Object.assign(this, this.nextVersion);
           this.isLoading = false;
           this.isReloading = false;
         }
