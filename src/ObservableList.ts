@@ -1,6 +1,6 @@
 // Copyright (c) 2017-2020 AppJudo Inc.  MIT License.
 
-import { action, extendObservable, isObservable, observable, runInAction, IObservableArray } from 'mobx';
+import { action, computed, isObservable, observable, runInAction, IObservableArray } from 'mobx';
 import lodash from 'lodash';
 
 export interface List<T> extends Array<T> {
@@ -125,9 +125,8 @@ export class PaginatedObservableList<T> extends BaseObservableList<T | undefined
 
   @observable pages: IObservableArray<List<T> | undefined>;
   @observable pagePromises: IObservableArray<Promise<List<T>> | undefined>;
-  @observable loadedPageIndexes: number[];
+  @observable loadedPageCount: number = 0;
   @observable loadingPageCount: number = 0;
-  @observable maxLoadedPageIndex: number = -1;
 
   @observable totalLength: number = -1;
   @observable isFullyLoaded: boolean = false;
@@ -142,7 +141,6 @@ export class PaginatedObservableList<T> extends BaseObservableList<T | undefined
 
     this.pages = observable.array();
     this.pagePromises = observable.array();
-    this.loadedPageIndexes = observable.array();
 
     this.promise = Promise.resolve([]);
     this.isLoading = false;
@@ -150,17 +148,40 @@ export class PaginatedObservableList<T> extends BaseObservableList<T | undefined
     this.isFullyLoaded = false;
   }
 
+  @computed get maxLoadedPageIndex() {
+    return this.pages.length - 1;
+  }
+
+  @computed get loadingPageIndexes() {
+    const result: number[] = [];
+    if (this.loadingPageCount) {
+      for (let index = 0; index < this.pagePromises.length; index++) {
+        if (index >= this.pages.length || !this.pages[index]) {
+          result.push(index);
+        }
+      }
+    }
+    return result;
+  }
+
   @action reset() {
     this.replace([]);
+    this.pages.replace([]);
+    this.pagePromises.replace([]);
+    this.loadedPageCount = 0;
+    this.loadingPageCount = 0;
     this.isFullyLoaded = false;
-    this.maxLoadedPageIndex = -1;
   }
 
   @action reload(clear?: boolean): Promise<List<T | undefined>> {
+    // Cache currently loading page indexes before (possibly) resetting this list.
+    const loadingPageIndexes = this.loadingPageIndexes;
     if (clear) this.reset();
     this.isReloading = true;
     this.error = undefined;
     this.nextVersion = new PaginatedObservableList(this.provider, this.pageSize, this.versionNumber + 1);
+    // Reload previously loading page indexes into next version.
+    loadingPageIndexes.forEach(index => this.getPageAtIndex(index));
     return Promise.resolve(this);
   }
 
@@ -192,9 +213,11 @@ export class PaginatedObservableList<T> extends BaseObservableList<T | undefined
       return pagePromise;
     }
     const loadedVersionNumber = list.versionNumber;
+    console.log(['loading page', pageSize, pageIndex]);
     pagePromise = list.provider(pageSize, pageIndex).then(action((data: List<T>) => {
       // Check that list has not been reloaded/reset since page request was made.
       const latestVersionNumber = this.nextVersion?.versionNumber || this.versionNumber;
+      console.log(['loaded', loadedVersionNumber, latestVersionNumber]);
       if (loadedVersionNumber === latestVersionNumber) {
         const startIndex = pageSize * pageIndex;
         while (list.length < startIndex) {
@@ -204,15 +227,16 @@ export class PaginatedObservableList<T> extends BaseObservableList<T | undefined
           list[startIndex + index] = data[index];
         }
 
+        console.log(data);
+        console.log(data.totalLength);
         attachMetadata(list, data);
-        list.loadedPageIndexes.push(pageIndex);
+        list.loadedPageCount++;
         list.isFullyLoaded = list.totalLength >= 0
-          && list.loadedPageIndexes.length === Math.ceil(list.totalLength / pageSize);
+          && list.loadedPageCount === Math.ceil(list.totalLength / pageSize);
 
         const pages = list.pages.slice();
         pages[pageIndex] = data;
         list.pages.replace(pages);
-        list.maxLoadedPageIndex = Math.max(this.maxLoadedPageIndex, pageIndex + 1);
         list.loadingPageCount--;
 
         this.isLoading = !!(this.nextVersion || this).loadingPageCount;
@@ -240,9 +264,11 @@ export class PaginatedObservableList<T> extends BaseObservableList<T | undefined
     list.loadingPageCount++;
     this.isLoading = true;
 
-    this.promise = list.promise = Promise.all([list.promise, pagePromise]).then(() => (
-      list.loadingPageCount ? list.promise : list
-    ));
+    console.log(['page promises', pagePromises]);
+    this.promise = list.promise = Promise.all(lodash.compact(pagePromises)).then(() => {
+      console.log(['promise fulfilled', list.totalLength]);
+      return list;
+    });
   
     return pagePromise;
   }
@@ -250,8 +276,9 @@ export class PaginatedObservableList<T> extends BaseObservableList<T | undefined
   isItemLoadedAtIndex(itemIndex: number) {
     if (this.nextVersion) {
       const pageIndex = this.getPageIndexFromItemIndex(itemIndex);
-      const isPageIndexLoaded = this.nextVersion.loadedPageIndexes.findIndex(index => index === pageIndex) !== -1;
-      if (this.nextVersion.loadedPageIndexes.findIndex(index => index === pageIndex) === -1) {
+      const isPageIndexLoaded = this.nextVersion.pages.length > pageIndex
+        && this.nextVersion.pages[pageIndex];
+      if (isPageIndexLoaded) {
         this.getPageAtIndex(pageIndex);
       }
     }
