@@ -61,13 +61,14 @@ export default class AjaxRequest {
   response?: Response;
   responseData?: any;
   retrying?: boolean;
+  promise?: Promise<Response>;
 
   constructor(config: AjaxRequestConfig) {
     this.config = config;
   }
 
   fetch(parseJsonBody: Boolean = false, attemptIndex: number = 0): Promise<Response> {
-    return new Promise<Response>(async (resolve, reject) => {
+    this.promise = new Promise<Response>(async (resolve, reject) => {
       try {
         if (this.config.onRequest) {
           const shouldContinueMakingRequest = await this.config.onRequest(this);
@@ -132,6 +133,7 @@ export default class AjaxRequest {
         reject(error);
       }
     });
+    return this.promise;
   }
 
   async fetchJson() {
