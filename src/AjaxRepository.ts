@@ -2,14 +2,16 @@
 
 import { action } from 'mobx';
 
-import AjaxClient, {
-  AjaxRequest,
+import AjaxClient from './AjaxClient';
+import {
+  default as AjaxRequest,
   AjaxRequestConfig,
   FilterRequestConfigModifier,
   ItemRequestConfigModifier,
   ListRequestConfigModifier,
   RequestConfigModifier,
-} from './AjaxClient';
+} from './AjaxRequest';
+
 import Model from './Model';
 import Repository from './Repository';
 import {

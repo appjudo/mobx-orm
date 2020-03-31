@@ -43,3 +43,7 @@ export type InstantiableParameter<T> = T | ConstructorParameters<Constructor<T>>
 export function instantiate<T>(klass: Constructor<T>, params: InstantiableParameter<T>): T {
   return (params instanceof klass) ? params : new klass(params);
 }
+
+export function isUndefined(value: any): boolean {
+  return typeof value === 'undefined';
+}
