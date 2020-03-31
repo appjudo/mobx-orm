@@ -2,19 +2,21 @@
 
 export {
   default as AjaxClient,
-  AjaxRequest,
-  AjaxRequestConfig,
   AjaxResponseOverride,
-  FilterRequestConfigModifier,
-  ItemRequestConfigModifier,
-  RequestConfigModifier,
-  ResponseError,
 } from './AjaxClient';
 export {
   default as AjaxRepository,
   AjaxRepositoryConfig,
   listPaginationRequestConfigModifier
 } from './AjaxRepository';
+export {
+  default as AjaxRequest,
+  AjaxRequestConfig,
+  FilterRequestConfigModifier,
+  ItemRequestConfigModifier,
+  RequestConfigModifier,
+  ResponseError,
+} from './AjaxRequest';
 export { default as Collection, EmptyCollection, PaginatedCollection } from './Collection';
 export { default as MockRepository, MockRepositoryConfig } from './MockRepository';
 export { default as Model } from './Model';
