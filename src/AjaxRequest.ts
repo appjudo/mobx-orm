@@ -217,3 +217,12 @@ export function mergeRequestConfig(targetConfig: AjaxRequestConfig, ...sourceCon
   });
   return targetConfig;
 }
+
+export function getObjectFromHeaders(headers: Headers): Record<string, string> {
+  const result: Record<string, string> = {};
+  const keyValuePairs = [...headers.entries()];
+  keyValuePairs.forEach(([key, value]) => {
+      result[key] = value;
+  });
+  return result;
+}
