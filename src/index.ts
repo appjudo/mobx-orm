@@ -13,6 +13,7 @@ export {
   default as AjaxRequest,
   AjaxRequestConfig,
   FilterRequestConfigModifier,
+  getObjectFromHeaders,
   ItemRequestConfigModifier,
   RequestConfigModifier,
   ResponseError,
