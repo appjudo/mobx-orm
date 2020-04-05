@@ -20,6 +20,7 @@ export {
 } from './AjaxRequest';
 export { default as Collection, EmptyCollection, PaginatedCollection } from './Collection';
 export { default as MockRepository, MockRepositoryConfig } from './MockRepository';
+export { default as MockStorage } from './MockStorage';
 export { default as Model } from './Model';
 export { default as Repository, EmptyRepository } from './Repository';
 export * from './types';
