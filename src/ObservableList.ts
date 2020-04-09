@@ -8,6 +8,14 @@ export interface List<T> extends Array<T> {
   totalLength?: number;
 }
 
+export interface ReloadOptions {
+  clear: boolean;
+}
+
+export interface PaginatedReloadOptions extends ReloadOptions {
+  preload: boolean;
+}
+
 type ListProvider<T> = (...args: number[]) => Promise<List<T>>;
 type PaginatedListProvider<T> = (pageSize: number, pageIndex?: number) => Promise<List<T>>;
 
@@ -58,7 +66,7 @@ export abstract class BaseObservableList<T> extends ObservableArrayObjectHybrid 
   }
 
   abstract reset(): void;
-  abstract reload(clear?: boolean): Promise<List<T>>;
+  abstract reload(options: Partial<ReloadOptions>): Promise<List<T>>;
   abstract preload(): Promise<List<T>>;
 }
 
@@ -88,7 +96,8 @@ export default class ObservableList<T> extends BaseObservableList<T> {
     this.replace([]);
   }
 
-  @action reload(clear: boolean = false): Promise<List<T>> {
+  @action reload(options: Partial<ReloadOptions> = {}): Promise<List<T>> {
+    const clear = options.clear ?? false;
     if (clear) this.replace([]);
     if (this.isLoading) {
       return this.promise;
@@ -178,9 +187,11 @@ export class PaginatedObservableList<T> extends BaseObservableList<T | undefined
     this.isFullyLoaded = false;
   }
 
-  @action reload(clear?: boolean): Promise<List<T | undefined>> {
+  @action reload(options: Partial<PaginatedReloadOptions> = {}): Promise<List<T | undefined>> {
+    const clear = options.clear ?? false;
+    const preload = options.preload ?? false;
     // Cache currently loading page indexes before (possibly) resetting this list.
-    const loadingPageIndexes = this.loadingPageIndexes;
+    const previouslyLoadingPageIndexes = this.loadingPageIndexes;
     if (clear) this.reset();
     this.isReloading = true;
     this.error = undefined;
@@ -188,18 +199,20 @@ export class PaginatedObservableList<T> extends BaseObservableList<T | undefined
     this.fullyLoadedDate = undefined;
     this.nextVersion = new PaginatedObservableList(this.provider, this.pageSize, this.versionNumber + 1);
     // Reload previously loading page indexes into next version.
-    loadingPageIndexes.forEach(index => this.getPageAtIndex(index));
+    if (preload) this.getPageAtIndex(0);
+    previouslyLoadingPageIndexes.forEach(index => this.getPageAtIndex(index));
     return Promise.resolve(this);
   }
 
   @action preload(): Promise<List<T | undefined>> {
-    if (this.totalLength >= 0) {
-      return Promise.resolve(this.slice());
+    const list = this.nextVersion || this;
+    if (list.totalLength >= 0) {
+      return Promise.resolve(list.slice());
     }
-    if (this.isLoading) {
-      return this.promise;
+    if (list.isLoading) {
+      return list.promise;
     }
-    return this.getNextPage();
+    return list.getNextPage();
   }
 
   @action getNextPage(): Promise<List<T>> {
