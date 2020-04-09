@@ -250,11 +250,13 @@ export class PaginatedObservableList<T> extends BaseObservableList<T | undefined
         list.loadingPageCount--;
 
         this.isLoading = !!(this.nextVersion || this).loadingPageCount;
-        if (!this.isLoading && this.nextVersion) {
-          // Copy nextVersion back to this.
-          this.replace(this.nextVersion);
-          Object.assign(this, this.nextVersion);
-          this.isLoading = false;
+        if (!this.isLoading) {
+          if (this.nextVersion) {
+            // Copy nextVersion back to this.
+            this.replace(this.nextVersion);
+            Object.assign(this, this.nextVersion);
+            this.isLoading = false;
+          }
           this.isReloading = false;
         }
       }
@@ -264,6 +266,7 @@ export class PaginatedObservableList<T> extends BaseObservableList<T | undefined
       if (loadedVersionNumber === latestVersionNumber) {
         list.loadingPageCount--;
         this.isLoading = !!list.loadingPageCount;
+        if (!this.isLoading) this.isReloading = false;
       }
       this.error = error;
       throw error;
