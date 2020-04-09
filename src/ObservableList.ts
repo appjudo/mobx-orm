@@ -50,6 +50,7 @@ export abstract class BaseObservableList<T> extends ObservableArrayObjectHybrid 
   @observable isReloading: boolean = false;
   @observable error?: Error;
   @observable metadata?: any;
+  @observable loadedDate?: Date;
 
   constructor(provider: ListProvider<T>) {
     super();
@@ -73,6 +74,7 @@ export default class ObservableList<T> extends BaseObservableList<T> {
       if ('metadata' in data) {
         this.metadata = data.metadata;
       }
+      this.loadedDate = new Date();
       return data;
     })).catch(action((error: Error) => {
       this.replace([]);
@@ -93,11 +95,13 @@ export default class ObservableList<T> extends BaseObservableList<T> {
     }
 
     this.error = undefined;
+    this.loadedDate = undefined;
     this.promise = this.provider().then(action((data: List<T>) => {
       this.isLoading = false;
       this.isReloading = false;
       this.replace(data || []);
       attachMetadata(this, data);
+      this.loadedDate = new Date();
       return data;
     })).catch(action((error: Error) => {
       this.replace([]);
@@ -130,6 +134,7 @@ export class PaginatedObservableList<T> extends BaseObservableList<T | undefined
 
   @observable totalLength: number = -1;
   @observable isFullyLoaded: boolean = false;
+  @observable fullyLoadedDate?: Date;
   @observable versionNumber: number;
   @observable nextVersion?: PaginatedObservableList<T>;
   
@@ -179,6 +184,8 @@ export class PaginatedObservableList<T> extends BaseObservableList<T | undefined
     if (clear) this.reset();
     this.isReloading = true;
     this.error = undefined;
+    this.loadedDate = undefined;
+    this.fullyLoadedDate = undefined;
     this.nextVersion = new PaginatedObservableList(this.provider, this.pageSize, this.versionNumber + 1);
     // Reload previously loading page indexes into next version.
     loadingPageIndexes.forEach(index => this.getPageAtIndex(index));
@@ -229,6 +236,13 @@ export class PaginatedObservableList<T> extends BaseObservableList<T | undefined
         list.loadedPageCount++;
         list.isFullyLoaded = list.totalLength >= 0
           && list.loadedPageCount === Math.ceil(list.totalLength / pageSize);
+
+        if (!list.loadedDate) {
+          this.loadedDate = new Date();
+        }
+        if (list.isFullyLoaded && !list.fullyLoadedDate) {
+          list.fullyLoadedDate = new Date();
+        }
 
         const pages = list.pages.slice();
         pages[pageIndex] = data;
