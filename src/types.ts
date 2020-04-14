@@ -3,6 +3,8 @@
 export { default as ObservableList, List, PaginatedObservableList } from './ObservableList';
 import { List } from './ObservableList';
 
+export type Awaitable<T> = Promise<T> | T;
+
 export type Id = string;
 export type StaticUrl = string;
 export type DynamicUrl<T extends ModelObject> = (value: Id | T) => string | undefined;
@@ -26,8 +28,8 @@ export interface CollectionOptions {
 }
 
 export interface LocalStorage {
-  getItem: (name: string) => (string | undefined | Promise<string | undefined>);
-  setItem: (name: string, value: string) => (string | Promise<string>);
+  getItem: (name: string) => Awaitable<string | undefined>;
+  setItem: (name: string, value: string) => Awaitable<string>;
   removeItem: (name: string) => void;
   clear: () => void;
 }
