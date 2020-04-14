@@ -2,7 +2,7 @@
 
 import qs from 'qs';
 import AjaxClient from './AjaxClient';
-import { Id, CollectionOptions } from './types';
+import { Awaitable, CollectionOptions } from './types';
 import { isUndefined } from './types';
 
 export interface AjaxRequestConfig extends Omit<RequestInit, 'headers'> {
@@ -14,9 +14,10 @@ export interface AjaxRequestConfig extends Omit<RequestInit, 'headers'> {
   bodyParams: Record<string, string>;
   context: any;
 
-  onRequest?: (request: AjaxRequest) => Promise<boolean> | boolean;
-  onResponse?: (response: Response, request: AjaxRequest) => Promise<boolean> | boolean;
-  onResponseError?: (responseError: ResponseError, retry: Function, reject: Function) => Promise<boolean> | boolean;
+  onRequest?: (request: AjaxRequest) => Awaitable<AjaxRequest | null>;
+  onResponse?: (response: Response, request: AjaxRequest) => Awaitable<Response | null>;
+  onResponseError?: (responseError: ResponseError, retry: Function, reject: Function) =>
+    Awaitable<ResponseError | Response | null>;
 }
 
 export type RequestConfigModifier = (requestConfig: AjaxRequestConfig, value: string) => void;
