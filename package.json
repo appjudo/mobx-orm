@@ -1,6 +1,6 @@
 {
   "name": "mobx-orm",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "description": "An ORM for MobX",
   "author": "AppJudo Inc.",
   "license": "MIT",
@@ -50,6 +50,6 @@
     "rollup-plugin-peer-deps-external": "^2.2.0",
     "rollup-plugin-typescript2": "^0.22.0",
     "ts-jest": "^24.0.2",
-    "typescript": "^3.5.3"
+    "typescript": "^3.7.2"
   }
 }
