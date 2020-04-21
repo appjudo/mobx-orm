@@ -14,11 +14,14 @@ export type ItemResponseMapper<T> = (data: any, context: any) => T | undefined;
 export type ListResponseMapper<T> = (data: any, context: any) => List<T>;
 export type ListDeleteAllResponseMapper<T> = (data: any, context: any) => List<T> | boolean;
 
+export type Filters = Record<string, any>;
+export type Params = Record<string, string | number | boolean>;
+
 export interface CollectionOptions {
   /** Name of sort type to apply. */
   sort?: string;
   /** Filter names/values to apply. */
-  filters?: Record<string, string | undefined>;
+  filters?: Filters;
   /** True if the sort should be reversed. */
   reverse?: boolean;
   /** Search keywords query string. */
@@ -28,8 +31,8 @@ export interface CollectionOptions {
 }
 
 export interface LocalStorage {
-  getItem: (name: string) => Awaitable<string | undefined>;
-  setItem: (name: string, value: string) => Awaitable<string>;
+  getItem: (name: string) => Awaitable<string | null>;
+  setItem: (name: string, value: string) => Awaitable<void>;
   removeItem: (name: string) => void;
   clear: () => void;
 }
@@ -44,8 +47,4 @@ export type InstantiableParameter<T> = T | ConstructorParameters<Constructor<T>>
 
 export function instantiate<T>(klass: Constructor<T>, params: InstantiableParameter<T>): T {
   return (params instanceof klass) ? params : new klass(params);
-}
-
-export function isUndefined(value: any): boolean {
-  return typeof value === 'undefined';
 }

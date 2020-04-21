@@ -3,15 +3,16 @@
 import qs from 'qs';
 import AjaxClient from './AjaxClient';
 import { Awaitable, CollectionOptions } from './types';
-import { isUndefined } from './types';
+import { Filters, Params } from './types';
+import { isUndefined } from './utils';
 
 export interface AjaxRequestConfig extends Omit<RequestInit, 'headers'> {
   client?: AjaxClient;
   baseUrl?: string;
   url?: string;
   headers: Record<string, string | undefined>;
-  queryParams: Record<string, string | number | boolean>;
-  bodyParams: Record<string, string>;
+  queryParams: Params;
+  bodyParams: Params;
   context: any;
 
   onRequest?: (request: AjaxRequest) => Awaitable<AjaxRequest | null>;
@@ -22,7 +23,7 @@ export interface AjaxRequestConfig extends Omit<RequestInit, 'headers'> {
 
 export type RequestConfigModifier = (requestConfig: AjaxRequestConfig, value: string) => void;
 export type FilterRequestConfigModifier =
-  (requestConfig: AjaxRequestConfig, filters: Record<string, string | undefined>) => void;
+  (requestConfig: AjaxRequestConfig, filters: Filters) => void;
 
 export type ItemRequestConfigModifier<T> = (requestConfig: AjaxRequestConfig, item: T) => void;
 export type ListRequestConfigModifier<T> =
