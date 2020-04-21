@@ -24,6 +24,7 @@ export { default as MockStorage } from './MockStorage';
 export { default as Model } from './Model';
 export { default as Repository, EmptyRepository } from './Repository';
 export * from './types';
+export * from './utils';
 export {
   default as ObservableList,
   getObservableListFromArray,

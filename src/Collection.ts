@@ -2,7 +2,13 @@
 
 import { action, computed, extendObservable, observable } from 'mobx';
 import Repository, { EmptyRepository } from './Repository';
-import { CollectionOptions, ModelObject, ObservableList, PaginatedObservableList } from './types';
+import {
+  CollectionOptions,
+  Filters,
+  ModelObject,
+  ObservableList,
+  PaginatedObservableList,
+} from './types';
 import {
   BaseObservableList,
   List,
@@ -91,7 +97,7 @@ abstract class BaseCollection<T extends ModelObject> {
     return this._clone({sort});
   }
 
-  filter(filters: Record<string, string | undefined>) {
+  filter(filters: Filters) {
     return this._clone({filters: {...this._options.filters, ...filters}});
   }
 

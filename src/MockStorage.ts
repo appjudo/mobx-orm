@@ -10,12 +10,11 @@ export default class MockStorage implements LocalStorage {
   }
 
   getItem(key: string) {
-    return this.items[key];
+    return this.items.hasOwnProperty(key) ? this.items[key] : null;
   }
 
   setItem(key: string, value: string) {
     this.items[key] = value;
-    return value;
   }
 
   removeItem(key: string) {

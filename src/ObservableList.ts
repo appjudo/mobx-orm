@@ -49,7 +49,7 @@ class ObservableArrayObjectHybrid extends ObservableArray {
   }
 }
 
-export abstract class BaseObservableList<T> extends ObservableArrayObjectHybrid {
+export abstract class BaseObservableList<T> extends ObservableArrayObjectHybrid implements List<T> {
   abstract promise: Promise<List<T>>;
 
   provider: ListProvider<T>;
