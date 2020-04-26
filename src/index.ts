@@ -7,7 +7,7 @@ export {
 export {
   default as AjaxRepository,
   AjaxRepositoryConfig,
-  listPaginationRequestConfigModifier
+  listPaginationRequestConfigModifier,
 } from './AjaxRepository';
 export {
   default as AjaxRequest,

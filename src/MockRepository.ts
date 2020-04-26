@@ -17,9 +17,9 @@ const ADD_DELAY_MS = 300;
 const FETCH_DELAY_MS = 1000;
 
 export interface MockRepositoryConfig<T> {
-  filter?: {[key: string]: FilterFunction<T>},
-  search?: FilterFunction<T>,
-  sort?: {[key: string]: SortConfig<T>},
+  filter?: {[key: string]: FilterFunction<T>};
+  search?: FilterFunction<T>;
+  sort?: {[key: string]: SortConfig<T>};
 }
 
 export default class MockRepository<T extends ModelObject> extends Repository<T> {
@@ -71,6 +71,7 @@ export default class MockRepository<T extends ModelObject> extends Repository<T>
     });
   }
 
+  /* eslint-disable-next-line class-methods-use-this */
   @action update(item: T): Promise<T | undefined> {
     throw new Error('Not implemented yet');
   }
@@ -80,14 +81,14 @@ export default class MockRepository<T extends ModelObject> extends Repository<T>
       setTimeout(() => {
         let data = this._data.slice(0);
         if (options.filters) {
-          for (let filterName in options.filters) {
+          Object.keys(options.filters).forEach(filterName => {
             const filterFunction = this._config.filter && this._config.filter[filterName];
             if (!filterFunction) {
               throw new Error(`Repository has no filter named '${filterName}'`);
             }
-            const filterValue = options.filters[filterName];
+            const filterValue = options.filters![filterName];
             data = data.filter(filterFunction(filterValue));
-          }
+          });
         }
         if (options.sort) {
           let sortConfig = this._config.sort && this._config.sort[options.sort];
@@ -101,7 +102,7 @@ export default class MockRepository<T extends ModelObject> extends Repository<T>
             // SortByIteratees.
             const sortByIteratees = sortConfig.slice(0) as SortByIteratees<T>;
             const sortOrder = sortByIteratees.map((iteratee, index) => {
-              let reverse = options.reverse;
+              let {reverse} = options;
               if (typeof iteratee === 'string' && iteratee.trim()[0] === '-') {
                 sortByIteratees[index] = iteratee.trim().substr(1);
                 reverse = !reverse;
@@ -110,7 +111,7 @@ export default class MockRepository<T extends ModelObject> extends Repository<T>
             });
             data = lodash.orderBy(data, sortByIteratees, sortOrder);
           } else {
-            let sortComparator = sortConfig as SortComparator<T>;
+            const sortComparator = sortConfig as SortComparator<T>;
             data = data.sort(options.reverse ? ((a: T, b: T) => -sortComparator(a, b)) : sortComparator);
           }
         }
@@ -118,7 +119,7 @@ export default class MockRepository<T extends ModelObject> extends Repository<T>
           const query = options.search;
           const searchFunction = this._config.search;
           if (!searchFunction) {
-            throw new Error(`Repository has no search function`);
+            throw new Error('Repository has no search function');
           }
           data = data.filter(searchFunction(query));
         }
@@ -132,6 +133,7 @@ export default class MockRepository<T extends ModelObject> extends Repository<T>
     return this._data;
   }
 
+  /* eslint-disable-next-line class-methods-use-this */
   @action async reload(item: T): Promise<T | undefined> {
     return item;
   }

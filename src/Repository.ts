@@ -1,5 +1,7 @@
 // Copyright (c) 2017-2020 AppJudo Inc.  MIT License.
 
+/* eslint-disable class-methods-use-this */
+
 import { action } from 'mobx';
 import { CollectionOptions, List, ModelObject, ObservableList } from './types';
 
@@ -36,8 +38,10 @@ export class EmptyRepository<T extends ModelObject> extends Repository<T> {
     throw new Error("Can't update items in EmptyRepository");
   }
 
+  /* eslint-disable-next-line no-empty-function */
   @action async delete(item: T): Promise<any> {}
 
+  /* eslint-disable-next-line no-empty-function */
   @action async deleteAll(options?: CollectionOptions): Promise<any> {}
 
   @action async reload(item: T): Promise<T | undefined> {

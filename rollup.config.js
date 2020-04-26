@@ -11,21 +11,21 @@ export default {
     dir: 'dist',
     format: 'cjs',
     exports: 'named',
-    sourcemap: true
+    sourcemap: true,
   },
   plugins: [
     includePaths({
       include: {},
       paths: ['src/'],
       external: [],
-      extensions: ['.js', '.json', '.ts']
+      extensions: ['.js', '.json', '.ts'],
     }),
     peerDepsExternal(),
     // multiInput(),
     resolve(),
     typescript({
       rollupCommonJSResolveHack: true,
-      clean: true
+      clean: true,
     }),
     commonjs(),
   ],

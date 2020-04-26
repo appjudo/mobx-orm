@@ -10,7 +10,7 @@ export default class MockStorage implements LocalStorage {
   }
 
   getItem(key: string) {
-    return this.items.hasOwnProperty(key) ? this.items[key] : null;
+    return Object.prototype.hasOwnProperty.call(this, key) ? this.items[key] : null;
   }
 
   setItem(key: string, value: string) {

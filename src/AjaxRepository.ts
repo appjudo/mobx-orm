@@ -3,8 +3,7 @@
 import { action } from 'mobx';
 
 import AjaxClient from './AjaxClient';
-import {
-  default as AjaxRequest,
+import AjaxRequest, {
   AjaxRequestConfig,
   FilterRequestConfigModifier,
   ItemRequestConfigModifier,
@@ -84,10 +83,10 @@ export default class AjaxRepository<T extends Model<any>> extends Repository<T> 
   collectionRequestConfigModifier?: ListRequestConfigModifier<T>;
   collectionResponseMapper: ListResponseMapper<T> = (data: any) => data;
 
-  memberBaseUrl: Url<T> = function (this: AjaxRepository<T>) {
+  memberBaseUrl: Url<T> = function memberBaseUrl(this: AjaxRepository<T>) {
     return this.collectionUrl;
   };
-  memberUrl: DynamicUrl<T> = function (this: AjaxRepository<T>, value: Id | T) {
+  memberUrl: DynamicUrl<T> = function memberUrl(this: AjaxRepository<T>, value: Id | T) {
     const memberBaseUrl = typeof this.memberBaseUrl === 'string' ? this.memberBaseUrl : this.memberBaseUrl(value);
     const id = this.getMemberId(value);
     return `${memberBaseUrl}/${id}`;
@@ -142,7 +141,7 @@ export default class AjaxRepository<T extends Model<any>> extends Repository<T> 
   @action list(options: CollectionOptions = {}, pageIndex?: number): Promise<List<T>> {
     const request = this.createRequest(this.listUrl || this.collectionUrl, this.listMethod);
     this.applyCollectionOptionsToRequest(request, options);
-    
+
     const requestConfigModifier = this.listRequestConfigModifier || this.collectionRequestConfigModifier;
     if (requestConfigModifier) requestConfigModifier(request.config, options, pageIndex);
 
@@ -278,9 +277,7 @@ export default class AjaxRepository<T extends Model<any>> extends Repository<T> 
     return list;
   });
 
-  protected cacheMember = action((item?: T) => {
-    return item && this.cacheItem(item);
-  });
+  protected cacheMember = action((item?: T) => item && this.cacheItem(item));
 
   cacheItem = action((item: T) => {
     item.repository = this;
@@ -315,7 +312,7 @@ export default class AjaxRepository<T extends Model<any>> extends Repository<T> 
       filterFunction(request.config, options.filters);
     }
     if (options.sort) {
-      let sortFunction = this.sort;
+      const sortFunction = this.sort;
       if (!sortFunction) throw new Error('AjaxRepository instance has no sort function');
       sortFunction(request.config, options.sort);
     }
@@ -349,9 +346,8 @@ export default class AjaxRepository<T extends Model<any>> extends Repository<T> 
   getMemberId(value: Id | T) {
     if (typeof value === 'string') {
       return value;
-    } else {
-      return value[this.idKey];
     }
+    return value[this.idKey];
   }
 }
 
@@ -361,7 +357,7 @@ export function listPaginationRequestConfigModifier(
   pageIndex: number = 0,
 ) {
   if (options.pageSize) {
-    requestConfig.queryParams['pageSize'] = options.pageSize;
-    requestConfig.queryParams['startIndex'] = options.pageSize * pageIndex;
+    requestConfig.queryParams.pageSize = options.pageSize;
+    requestConfig.queryParams.startIndex = options.pageSize * pageIndex;
   }
 }

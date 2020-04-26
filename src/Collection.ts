@@ -44,8 +44,8 @@ abstract class BaseCollection<T extends ModelObject> {
     return this.data.length;
   }
 
-  async getById(id: string, reload: boolean = false) {
-    return await this._repository.getById(id, reload);
+  getById(id: string, reload: boolean = false) {
+    return this._repository.getById(id, reload);
   }
 
   @action async add(item: T, append: boolean = false) {
@@ -64,8 +64,8 @@ abstract class BaseCollection<T extends ModelObject> {
     return result;
   }
 
-  @action async update(item: T) {
-    return await this._repository.update(item);
+  @action update(item: T) {
+    return this._repository.update(item);
   }
 
   @action async delete(item: T, remove: boolean = false) {
@@ -182,8 +182,7 @@ export class PaginatedCollection<T extends ModelObject> extends BaseCollection<T
    */
   @computed get data(): PaginatedObservableList<T> {
     if (!this._data) {
-      const provider = (pageSize?: number, pageIndex: number = 0) =>
-        this._repository.list(this._options, pageIndex);
+      const provider = (pageSize?: number, pageIndex: number = 0) => this._repository.list(this._options, pageIndex);
       this._data = new PaginatedObservableList(provider, this._options.pageSize!);
     }
     return this._data as PaginatedObservableList<T>;
@@ -218,7 +217,7 @@ export class EmptyCollection<T extends ModelObject> extends Collection<T> {
 }
 
 function matches<T extends ModelObject>(item: T) {
-  return (otherItem: T | undefined) => otherItem
+  return (otherItem: T | undefined) => (otherItem
     ? (otherItem === item || (otherItem.id ? otherItem.id === item.id : false))
-    : false;
+    : false);
 }
