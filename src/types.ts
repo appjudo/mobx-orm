@@ -1,7 +1,8 @@
 // Copyright (c) 2017-2020 AppJudo Inc.  MIT License.
 
-export { default as ObservableList, List, PaginatedObservableList } from './ObservableList';
 import { List } from './ObservableList';
+
+export { default as ObservableList, List, PaginatedObservableList } from './ObservableList';
 
 export type Awaitable<T> = Promise<T> | T;
 
@@ -45,6 +46,6 @@ export type Constructor<T> = new (...args: any[]) => T;
 
 export type InstantiableParameter<T> = T | ConstructorParameters<Constructor<T>>[0];
 
-export function instantiate<T>(klass: Constructor<T>, params: InstantiableParameter<T>): T {
-  return (params instanceof klass) ? params : new klass(params);
+export function instantiate<T>(Class: Constructor<T>, params: InstantiableParameter<T>): T {
+  return (params instanceof Class) ? params : new Class(params);
 }

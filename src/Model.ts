@@ -11,6 +11,7 @@ export default abstract class Model<T extends ModelObject> {
   @observable _promise?: Promise<T | undefined>;
   @observable repository?: Repository<T>;
 
+  /* eslint-disable-next-line class-methods-use-this */
   get isFullyLoaded(): boolean {
     return true;
   }

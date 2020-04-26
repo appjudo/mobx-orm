@@ -20,17 +20,18 @@ type ListProvider<T> = (...args: number[]) => Promise<List<T>>;
 type PaginatedListProvider<T> = (pageSize: number, pageIndex?: number) => Promise<List<T>>;
 
 const ObservableArray = observable.array().constructor as {
-  new(initialValues: any, enhancer: any, name?: any): IObservableArray,
+  new(initialValues: any, enhancer: any, name?: any): IObservableArray;
 };
 
 // Adapted from MobX 4.x internals; variable names preserved from original source.
 function deepEnhancer(v: any, _: any, name: any) {
+  /* eslint-disable */
   // it is an observable already, done
   if (isObservable(v))
-      return v;
+    return v;
   // something that can be converted and mutated?
   if (Array.isArray(v))
-      return observable.array(v, { name });
+    return observable.array(v, { name });
   return v;
 }
 

@@ -1,9 +1,11 @@
 // Copyright (c) 2017-2020 AppJudo Inc.  MIT License.
 
+/* eslint-env browser */
+
 import qs from 'qs';
 import AjaxClient from './AjaxClient';
-import { Awaitable, CollectionOptions } from './types';
-import { Filters, Params } from './types';
+import { Awaitable, CollectionOptions, Filters, Params } from './types';
+
 import { isUndefined } from './utils';
 
 export interface AjaxRequestConfig extends Omit<RequestInit, 'headers'> {
@@ -46,7 +48,7 @@ export class ResponseError extends Error {
 
   constructor(options: ResponseErrorOptions, ...args: any[]) {
     super(...args);
-    
+
     this.request = options.request;
     this.requestConfig = options.requestConfig;
     this.requestAttemptIndex = options.requestAttemptIndex || 0;
@@ -70,67 +72,71 @@ export default class AjaxRequest {
   }
 
   fetch(parseJsonBody: Boolean = false, attemptIndex: number = 0): Promise<Response> {
-    this.promise = new Promise<Response>(async (resolve, reject) => {
+    this.promise = new Promise<Response>((resolve, reject) => {
       try {
-        if (this.config.onRequest) {
-          const shouldContinueMakingRequest = await this.config.onRequest(this);
-          if (!shouldContinueMakingRequest) return;
-        }
-        const [url, requestInit] = await this.prepareRequestInit();
-        this.request = new Request(url, requestInit);
-        if (this.config.client) {
-          this.config.client.requests.push(this);
-          if (this.config.client.responseOverride) {
-            this.response = new Response(null, this.config.client.responseOverride);
-            this.responseData = this.config.client.responseOverride.responseData;
+        (async () => {
+          if (this.config.onRequest) {
+            const newRequest = await this.config.onRequest(this);
+            if (!newRequest) return;
+            // TODO: onRequest should return an AjaxRequestConfig, not a different AjaxRequest.
+            this.config = newRequest.config;
           }
-        }
-        if (!this.response) {
-          // TODO: Handle timeout via fetch signal.
-          // NOTE: Previous implementation of AbortSignal caused login to fail.
-          this.response = await fetch(this.request);
-          if (parseJsonBody) {
-            this.responseData = await this.parseJsonFromResponse();
+          const [url, requestInit] = await this.prepareRequestInit();
+          this.request = new Request(url, requestInit);
+          if (this.config.client) {
+            this.config.client.requests.push(this);
+            if (this.config.client.responseOverride) {
+              this.response = new Response(null, this.config.client.responseOverride);
+              this.responseData = this.config.client.responseOverride.responseData;
+            }
           }
-        }
+          if (!this.response) {
+            // TODO: Handle timeout via fetch signal.
+            // NOTE: Previous implementation of AbortSignal caused login to fail.
+            this.response = await fetch(this.request);
+            if (parseJsonBody) {
+              this.responseData = await this.parseJsonFromResponse();
+            }
+          }
 
-        if (this.config.onResponse) {
-          const shouldContinueHandlingResponse = await this.config.onResponse(this.response, this);
-          if (!shouldContinueHandlingResponse) return;
-        }
-
-        if (this.response.ok) {
-          resolve(this.response);
-          return;
-        }
-
-        const responseError = new ResponseError(
-          {
-            request: this.request,
-            requestConfig: this.config,
-            requestAttemptIndex: attemptIndex,
-            response: this.response,
-            responseData: this.responseData,
-          },
-          `Response error: status ${this.response.status} ${this.response.statusText}`,
-        );
-        
-        if (this.config.onResponseError) {
-          const retry = (requestConfig?: AjaxRequestConfig) => {
-            this.retrying = true;
-            if (requestConfig) this.config = requestConfig;
-            resolve(this.fetch(parseJsonBody, attemptIndex + 1));
-          };
-          try {
-            const shouldContinueHandlingResponse = await this.config.onResponseError(responseError, retry, reject);
+          if (this.config.onResponse) {
+            const shouldContinueHandlingResponse = await this.config.onResponse(this.response, this);
             if (!shouldContinueHandlingResponse) return;
-          } catch (error) {
-            reject(error);
+          }
+
+          if (this.response.ok) {
+            resolve(this.response);
             return;
           }
-        }
 
-        reject(responseError);
+          const responseError = new ResponseError(
+            {
+              request: this.request,
+              requestConfig: this.config,
+              requestAttemptIndex: attemptIndex,
+              response: this.response,
+              responseData: this.responseData,
+            },
+            `Response error: status ${this.response.status} ${this.response.statusText}`,
+          );
+
+          if (this.config.onResponseError) {
+            const retry = (requestConfig?: AjaxRequestConfig) => {
+              this.retrying = true;
+              if (requestConfig) this.config = requestConfig;
+              resolve(this.fetch(parseJsonBody, attemptIndex + 1));
+            };
+            try {
+              const shouldContinueHandlingResponse = await this.config.onResponseError(responseError, retry, reject);
+              if (!shouldContinueHandlingResponse) return;
+            } catch (error) {
+              reject(error);
+              return;
+            }
+          }
+
+          reject(responseError);
+        })().catch(error => reject(error));
       } catch (error) {
         reject(error);
       }
@@ -144,18 +150,18 @@ export default class AjaxRequest {
   }
 
   private async prepareRequestInit(): Promise<[string, RequestInit]> {
-    let requestConfig = cloneRequestConfig(this.config);
+    const requestConfig = cloneRequestConfig(this.config);
 
     let url = (requestConfig.baseUrl || '') + (requestConfig.url || '');
     if (!requestConfig.method) {
       requestConfig.method = 'GET';
     }
 
-    for (const name in requestConfig.headers) {
+    Object.keys(requestConfig.headers).forEach(name => {
       if (isUndefined(requestConfig.headers[name])) {
         delete requestConfig.headers[name];
       }
-    }
+    });
 
     const queryParamsString = qs.stringify(requestConfig.queryParams);
     if (queryParamsString) {
@@ -224,7 +230,7 @@ export function getObjectFromHeaders(headers: Headers): Record<string, string> {
   const result: Record<string, string> = {};
   const keyValuePairs = [...headers.entries()];
   keyValuePairs.forEach(([key, value]) => {
-      result[key] = value;
+    result[key] = value;
   });
   return result;
 }

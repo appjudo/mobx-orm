@@ -1,17 +1,16 @@
 // Copyright (c) 2017-2020 AppJudo Inc.  MIT License.
 
-import {
-  default as AjaxRequest,
+import AjaxRequest, {
   AjaxRequestConfig,
   cloneRequestConfig,
   mergeRequestConfig,
 } from './AjaxRequest';
 
 export interface AjaxResponseOverride {
-  status: number,
-  statusText?: string,
-  headers?: Record<string, string>,
-  responseData?: any,
+  status: number;
+  statusText?: string;
+  headers?: Record<string, string>;
+  responseData?: any;
 }
 
 export default class AjaxClient {
