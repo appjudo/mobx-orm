@@ -200,9 +200,9 @@ export class PaginatedObservableList<T> extends BaseObservableList<T | undefined
     this.fullyLoadedDate = undefined;
     this.nextVersion = new PaginatedObservableList(this.provider, this.pageSize, this.versionNumber + 1);
     // Reload previously loading page indexes into next version.
-    if (preload) this.getPageAtIndex(0);
     previouslyLoadingPageIndexes.forEach(index => this.getPageAtIndex(index));
-    return Promise.resolve(this);
+    if (preload) this.getPageAtIndex(0);
+    return this.promise;
   }
 
   @action preload(): Promise<List<T | undefined>> {
