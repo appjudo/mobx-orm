@@ -3345,9 +3345,9 @@ mkdirp@0.x, mkdirp@^0.5.0, mkdirp@^0.5.1:
     minimist "0.0.8"
 
 mobx@^4.10.0:
-  version "4.13.1"
-  resolved "https://registry.yarnpkg.com/mobx/-/mobx-4.13.1.tgz#317c35f255f0ae343efa261458177da0e0637792"
-  integrity sha512-glng63xknZ/uUfK1sLLA7TTSncPe60YkmBcPXxgNkcF4gCHMVLvcxEvIY410FR47UBr4iQXep+Sk0hqbLP6ObQ==
+  version "4.15.4"
+  resolved "https://registry.yarnpkg.com/mobx/-/mobx-4.15.4.tgz#644eac80bdd15793855194e764c475041101b406"
+  integrity sha512-nyuHPqmKnVOnbvkjR8OrijBtovxAHYC+JU8/qBqvBw4Dez/n+zzxqNHbZNFy7/07+wwc/Qz7JS9WSfy1LcYISA==
 
 ms@2.0.0:
   version "2.0.0"
