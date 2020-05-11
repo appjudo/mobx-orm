@@ -85,11 +85,11 @@ export default class ObservableList<T> extends BaseObservableList<T> {
       }
       this.loadedDate = new Date();
       return data;
-    })).catch(action((error: Error) => {
+    }));
+    this.promise.catch(action((error: Error) => {
       this.replace([]);
       this.isLoading = false;
       this.error = error;
-      throw error;
     }));
   }
 
@@ -113,12 +113,12 @@ export default class ObservableList<T> extends BaseObservableList<T> {
       attachMetadata(this, data);
       this.loadedDate = new Date();
       return data;
-    })).catch(action((error: Error) => {
+    }));
+    this.promise.catch(action((error: Error) => {
       this.replace([]);
       this.isLoading = false;
       this.isReloading = false;
       this.error = error;
-      throw error;
     }));
 
     this.isLoading = true;
@@ -275,7 +275,8 @@ export class PaginatedObservableList<T> extends BaseObservableList<T | undefined
         }
       }
       return data;
-    })).catch(action((error: Error) => {
+    }));
+    pagePromise.catch(action((error: Error) => {
       const latestVersionNumber = this.nextVersion?.versionNumber || this.versionNumber;
       if (loadedVersionNumber === latestVersionNumber) {
         list.loadingPageCount--;
@@ -283,7 +284,6 @@ export class PaginatedObservableList<T> extends BaseObservableList<T | undefined
         if (!this.isLoading) this.isReloading = false;
       }
       this.error = error;
-      throw error;
     }));
     const pagePromises = list.pagePromises.slice();
     pagePromises[pageIndex] = pagePromise;
@@ -294,6 +294,7 @@ export class PaginatedObservableList<T> extends BaseObservableList<T | undefined
     this.promise = list.promise = Promise.all(lodash.compact(pagePromises)).then(() => {
       return list;
     });
+    this.promise.catch(() => {});
   
     return pagePromise;
   }
