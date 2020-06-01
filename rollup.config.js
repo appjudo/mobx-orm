@@ -1,9 +1,10 @@
-import commonjs from 'rollup-plugin-commonjs';
-import includePaths from 'rollup-plugin-includepaths';
-// import multiInput from 'rollup-plugin-multi-input';
-import peerDepsExternal from 'rollup-plugin-peer-deps-external';
-import resolve from 'rollup-plugin-node-resolve';
-import typescript from 'rollup-plugin-typescript2';
+import { resolve } from 'path';
+import commonjsPlugin from 'rollup-plugin-commonjs';
+import includePathsPlugin from 'rollup-plugin-includepaths';
+// import multiInputPlugin from 'rollup-plugin-multi-input';
+import peerDepsExternalPlugin from 'rollup-plugin-peer-deps-external';
+import resolvePlugin from 'rollup-plugin-node-resolve';
+import typescriptPlugin from 'rollup-plugin-typescript2';
 
 export default {
   input: 'src/index.ts',
@@ -11,22 +12,25 @@ export default {
     dir: 'dist',
     format: 'cjs',
     exports: 'named',
+    interop: false,
     sourcemap: true,
   },
   plugins: [
-    includePaths({
+    includePathsPlugin({
       include: {},
       paths: ['src/'],
       external: [],
       extensions: ['.js', '.json', '.ts'],
     }),
-    peerDepsExternal(),
+    peerDepsExternalPlugin({
+      packageJsonPath: resolve(__dirname, 'package.json'),
+    }),
     // multiInput(),
-    resolve(),
-    typescript({
+    resolvePlugin(),
+    typescriptPlugin({
       rollupCommonJSResolveHack: true,
       clean: true,
     }),
-    commonjs(),
+    commonjsPlugin(),
   ],
 };
