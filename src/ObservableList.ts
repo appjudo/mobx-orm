@@ -127,7 +127,9 @@ export default class ObservableList<T> extends BaseObservableList<T> {
   }
 
   @action preload(): Promise<List<T>> {
-    return this.isLoading ? this.promise : this.reload();
+    if (this.isLoading) return this.promise;
+    if (!this.loadedDate) return this.reload();
+    return Promise.resolve(this.slice());
   }
 }
 
