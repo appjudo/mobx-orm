@@ -237,44 +237,44 @@ export class PaginatedObservableList<T> extends BaseObservableList<T | undefined
     }
     const loadedVersionNumber = list.versionNumber;
     pagePromise = list.provider(pageSize, pageIndex).then(action((data: List<T>) => {
-      // Check that list has not been reloaded/reset since page request was made.
-      const latestVersionNumber = this.nextVersion?.versionNumber || this.versionNumber;
-      if (loadedVersionNumber === latestVersionNumber) {
-        const startIndex = pageSize * pageIndex;
-        while (list.length < startIndex) {
-          list.push(undefined);
-        }
-        for (let index = 0; index < data.length; index++) {
-          list[startIndex + index] = data[index];
-        }
+      if (this.nextVersion && this.nextVersion.versionNumber !== loadedVersionNumber) {
+        // List was reloaded/reset since page request was made; ignore this page response.
+        return data;
+      }
+      const startIndex = pageSize * pageIndex;
+      while (list.length < startIndex) {
+        list.push(undefined);
+      }
+      for (let index = 0; index < data.length; index++) {
+        list[startIndex + index] = data[index];
+      }
 
-        attachMetadata(list, data);
-        list.loadedPageCount++;
-        list.isFullyLoaded = list.totalLength >= 0
-          && list.loadedPageCount === Math.ceil(list.totalLength / pageSize);
+      attachMetadata(list, data);
+      list.loadedPageCount++;
+      list.isFullyLoaded = list.totalLength >= 0
+        && list.loadedPageCount === Math.ceil(list.totalLength / pageSize);
 
-        if (!list.loadedDate) {
-          this.loadedDate = new Date();
-        }
-        if (list.isFullyLoaded && !list.fullyLoadedDate) {
-          list.fullyLoadedDate = new Date();
-        }
+      if (!list.loadedDate) {
+        this.loadedDate = new Date();
+      }
+      if (list.isFullyLoaded && !list.fullyLoadedDate) {
+        list.fullyLoadedDate = new Date();
+      }
 
-        const pages = list.pages.slice();
-        pages[pageIndex] = data;
-        list.pages.replace(pages);
-        list.loadingPageCount--;
+      const pages = list.pages.slice();
+      pages[pageIndex] = data;
+      list.pages.replace(pages);
+      list.loadingPageCount--;
 
-        this.isLoading = !!(this.nextVersion || this).loadingPageCount;
-        if (!this.isLoading) {
-          if (this.nextVersion) {
-            // Copy nextVersion back to this.
-            this.replace(this.nextVersion);
-            Object.assign(this, this.nextVersion);
-            this.isLoading = false;
-          }
-          this.isReloading = false;
+      this.isLoading = !!(this.nextVersion || this).loadingPageCount;
+      if (!this.isLoading) {
+        if (this.nextVersion) {
+          // Copy nextVersion back to this.
+          this.replace(this.nextVersion);
+          Object.assign(this, this.nextVersion);
+          this.isLoading = false;
         }
+        this.isReloading = false;
       }
       return data;
     }));
