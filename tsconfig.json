@@ -20,7 +20,13 @@
     "outDir": "dist",
     "resolveJsonModule": true,
     "noEmit": true,
-    "jsx": "preserve"
+    "jsx": "preserve",
+    "plugins": [
+      {
+        "transform": "@zerollup/ts-transform-paths",
+        "exclude": ["*"]
+      }
+    ]
   },
   "include": [
     "src"

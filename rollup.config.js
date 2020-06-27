@@ -1,9 +1,11 @@
 import { resolve } from 'path';
-import commonjsPlugin from 'rollup-plugin-commonjs';
+import ttypescript from 'ttypescript';
+
+import commonjsPlugin from '@rollup/plugin-commonjs';
+import resolvePlugin from '@rollup/plugin-node-resolve';
+
 import includePathsPlugin from 'rollup-plugin-includepaths';
-// import multiInputPlugin from 'rollup-plugin-multi-input';
 import peerDepsExternalPlugin from 'rollup-plugin-peer-deps-external';
-import resolvePlugin from 'rollup-plugin-node-resolve';
 import typescriptPlugin from 'rollup-plugin-typescript2';
 
 export default {
@@ -25,10 +27,10 @@ export default {
     peerDepsExternalPlugin({
       packageJsonPath: resolve(__dirname, 'package.json'),
     }),
-    // multiInput(),
     resolvePlugin(),
     typescriptPlugin({
       rollupCommonJSResolveHack: true,
+      typescript: ttypescript,
       clean: true,
     }),
     commonjsPlugin(),
