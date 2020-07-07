@@ -18,7 +18,7 @@ abstract class BaseCollection<T extends ModelObject> {
   @observable protected _repository: Repository<T>;
   @observable protected _options: CollectionOptions;
 
-  protected _data?: BaseObservableList<T> | BaseObservableList<T | undefined>;
+  protected _data?: BaseObservableList<T>;
 
   constructor(repository: Repository<T>, options: CollectionOptions = {}) {
     this._repository = repository;

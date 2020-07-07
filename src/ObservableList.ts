@@ -56,19 +56,31 @@ export abstract class BaseObservableList<T> extends ObservableArrayObjectHybrid 
   provider: ListProvider<T>;
 
   @observable isLoading: boolean = true;
+  @observable loadedDate?: Date;
+  @observable isFullyLoaded: boolean = false;
+  @observable fullyLoadedDate?: Date;
   @observable isReloading: boolean = false;
+
   @observable error?: Error;
   @observable metadata?: any;
-  @observable loadedDate?: Date;
+  @observable totalLength: number = -1;
+  @observable versionNumber: number;
 
-  constructor(provider: ListProvider<T>) {
+  constructor(provider: ListProvider<T>, versionNumber: number = 1) {
     super();
     this.provider = provider;
+    this.versionNumber = versionNumber;
   }
 
-  abstract reset(): void;
-  abstract reload(options: Partial<ReloadOptions>): Promise<List<T>>;
-  abstract preload(): Promise<List<T>>;
+  @action reset() {
+    this.replace([]);
+    this.totalLength = -1;
+    this.isFullyLoaded = false;
+    this.loadedDate = this.fullyLoadedDate = undefined;
+  }
+
+  abstract reload(options: Partial<ReloadOptions>): Promise<List<T> | List<T | undefined>>;
+  abstract preload(): Promise<List<T> | List<T | undefined>>;
 }
 
 export default class ObservableList<T> extends BaseObservableList<T> {
@@ -84,22 +96,19 @@ export default class ObservableList<T> extends BaseObservableList<T> {
         this.metadata = data.metadata;
       }
       this.loadedDate = new Date();
+      this.totalLength = this.length;
       return data;
     }));
     this.promise.catch(action((error: Error) => {
-      this.replace([]);
+      this.reset();
       this.isLoading = false;
       this.error = error;
     }));
   }
 
-  @action reset() {
-    this.replace([]);
-  }
-
   @action reload(options: Partial<ReloadOptions> = {}): Promise<List<T>> {
     const clear = options.clear ?? false;
-    if (clear) this.replace([]);
+    if (clear) this.reset();
     if (this.isLoading) {
       return this.promise;
     }
@@ -111,7 +120,8 @@ export default class ObservableList<T> extends BaseObservableList<T> {
       this.isReloading = false;
       this.replace(data || []);
       attachMetadata(this, data);
-      this.loadedDate = new Date();
+      this.isFullyLoaded = true;
+      this.loadedDate = this.fullyLoadedDate = new Date();
       return data;
     }));
     this.promise.catch(action((error: Error) => {
@@ -133,7 +143,7 @@ export default class ObservableList<T> extends BaseObservableList<T> {
   }
 }
 
-export class PaginatedObservableList<T> extends BaseObservableList<T | undefined> {
+export class PaginatedObservableList<T> extends BaseObservableList<T> {
   promise: Promise<List<T>>;
   provider: PaginatedListProvider<T>;
 
@@ -144,17 +154,12 @@ export class PaginatedObservableList<T> extends BaseObservableList<T | undefined
   @observable loadedPageCount: number = 0;
   @observable loadingPageCount: number = 0;
 
-  @observable totalLength: number = -1;
-  @observable isFullyLoaded: boolean = false;
-  @observable fullyLoadedDate?: Date;
-  @observable versionNumber: number;
   @observable nextVersion?: PaginatedObservableList<T>;
   
   constructor(provider: PaginatedListProvider<T>, pageSize: number, versionNumber: number = 1) {
-    super(provider);
+    super(provider, versionNumber);
     this.provider = provider;
     this.pageSize = pageSize;
-    this.versionNumber = versionNumber;
 
     this.pages = observable.array();
     this.pagePromises = observable.array();
@@ -182,12 +187,11 @@ export class PaginatedObservableList<T> extends BaseObservableList<T | undefined
   }
 
   @action reset() {
-    this.replace([]);
+    super.reset();
     this.pages.replace([]);
     this.pagePromises.replace([]);
     this.loadedPageCount = 0;
     this.loadingPageCount = 0;
-    this.isFullyLoaded = false;
   }
 
   @action reload(options: Partial<PaginatedReloadOptions> = {}): Promise<List<T | undefined>> {
