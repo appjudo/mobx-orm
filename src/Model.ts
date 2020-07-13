@@ -5,7 +5,7 @@ import { action, computed, observable } from 'mobx';
 import Repository from './Repository';
 import { Id, ModelObject } from './types';
 
-export default abstract class Model<T extends ModelObject> {
+export default abstract class Model<T extends Model<T>> {
   @observable id?: Id;
   @observable _isLoading: boolean = false;
   @observable _promise?: Promise<T | undefined>;

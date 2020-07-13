@@ -9,27 +9,43 @@ import AjaxRequest, {
   ItemRequestConfigModifier,
   ListRequestConfigModifier,
   RequestConfigModifier,
+  IdRequestConfigModifier,
 } from './AjaxRequest';
 
 import Model from './Model';
-import Repository from './Repository';
+import Repository, { RepositoryContext, RepositoryContextBuilder } from './Repository';
 import {
-  DynamicUrl,
+  CollectionOptions,
   Id,
   ItemResponseMapper,
   List,
-  CollectionOptions,
   ListDeleteAllResponseMapper,
   ListResponseMapper,
-  StaticUrl,
-  Url,
+  Context,
 } from './types';
+
+export interface AjaxRepositoryContext<T extends Model<any>> extends RepositoryContext<T> {
+  repository: AjaxRepository<T>;
+}
+
+export type AjaxRepositoryContextBuilder<T extends Model<any>> =
+  AjaxRepositoryContext<T> | ((repository: AjaxRepository<T>) => any);
+
+export type StaticUrl = string;
+export type DynamicUrl<T extends Model<any>> = (params: UrlParams<T>) => StaticUrl | undefined;
+export type Url<T extends Model<any>> = StaticUrl | DynamicUrl<T>;
+
+export interface UrlParams<T extends Model<any>> {
+  context: AjaxRepositoryContext<T>;
+  member?: T;
+  memberId?: Id;
+}
 
 export interface AjaxRepositoryConfig<T extends Model<any>> {
   client?: AjaxClient;
   baseUrl?: string;
 
-  collectionUrl?: StaticUrl;
+  collectionUrl?: Url<T>;
   collectionRequestConfigModifier?: ListRequestConfigModifier<T>;
   collectionResponseMapper?: ListResponseMapper<T>;
 
@@ -45,7 +61,7 @@ export interface AjaxRepositoryConfig<T extends Model<any>> {
 
   getByIdMethod?: string;
   getByIdUrl?: DynamicUrl<T>;
-  getByIdRequestConfigModifier?: ItemRequestConfigModifier<string>;
+  getByIdRequestConfigModifier?: IdRequestConfigModifier;
   getByIdResponseMapper?: ItemResponseMapper<T>;
 
   addMethod?: string;
@@ -64,7 +80,7 @@ export interface AjaxRepositoryConfig<T extends Model<any>> {
   deleteResponseMapper?: ItemResponseMapper<any>;
 
   deleteAllMethod?: string;
-  deleteAllUrl?: StaticUrl;
+  deleteAllUrl?: Url<T>;
   deleteAllRequestConfigModifier?: ListRequestConfigModifier<T>;
   deleteAllResponseMapper?: ListDeleteAllResponseMapper<any>;
 
@@ -72,36 +88,36 @@ export interface AjaxRepositoryConfig<T extends Model<any>> {
   search?: RequestConfigModifier;
   filter?: FilterRequestConfigModifier;
 
-  requestContext?: (repository: AjaxRepository<T>) => any;
+  context?: AjaxRepositoryContextBuilder<T>;
 }
 
 export default class AjaxRepository<T extends Model<any>> extends Repository<T> {
   client?: AjaxClient;
   baseUrl?: string;
 
-  collectionUrl: StaticUrl = '';
+  collectionUrl: Url<T> = '';
   collectionRequestConfigModifier?: ListRequestConfigModifier<T>;
   collectionResponseMapper: ListResponseMapper<T> = (data: any) => data;
 
-  memberBaseUrl: Url<T> = function memberBaseUrl(this: AjaxRepository<T>) {
-    return this.collectionUrl;
+  memberBaseUrl: Url<T> = function memberBaseUrl(this: AjaxRepository<T>, params) {
+    return typeof this.collectionUrl === 'function' ? this.collectionUrl(params) : this.collectionUrl;
   };
-  memberUrl: DynamicUrl<T> = function memberUrl(this: AjaxRepository<T>, value: Id | T) {
-    const memberBaseUrl = typeof this.memberBaseUrl === 'string' ? this.memberBaseUrl : this.memberBaseUrl(value);
-    const id = this.getMemberId(value);
-    return `${memberBaseUrl}/${id}`;
+  memberUrl: DynamicUrl<T> = function memberUrl(this: AjaxRepository<T>, params) {
+    const {memberId} = params;
+    const memberBaseUrl = typeof this.memberBaseUrl === 'string' ? this.memberBaseUrl : this.memberBaseUrl(params);
+    return `${memberBaseUrl}/${memberId}`;
   };
   memberRequestConfigModifier?: ItemRequestConfigModifier<T>;
   memberResponseMapper: ItemResponseMapper<T> = (data: any) => data;
 
   listMethod: string = 'GET';
-  listUrl?: StaticUrl;
+  listUrl?: Url<T>;
   listRequestConfigModifier?: ListRequestConfigModifier<T>;
   listResponseMapper?: ListResponseMapper<T>;
 
   getByIdMethod: string = 'GET';
   getByIdUrl?: DynamicUrl<T>;
-  getByIdRequestConfigModifier?: ItemRequestConfigModifier<string>;
+  getByIdRequestConfigModifier?: IdRequestConfigModifier;
   getByIdResponseMapper?: ItemResponseMapper<T>;
 
   addMethod: string = 'POST';
@@ -120,7 +136,7 @@ export default class AjaxRepository<T extends Model<any>> extends Repository<T> 
   deleteResponseMapper?: ItemResponseMapper<T>;
 
   deleteAllMethod: string = 'DELETE';
-  deleteAllUrl?: StaticUrl;
+  deleteAllUrl?: Url<T>;
   deleteAllRequestConfigModifier?: ListRequestConfigModifier<T>;
   deleteAllResponseMapper?: ListResponseMapper<T>;
 
@@ -128,7 +144,7 @@ export default class AjaxRepository<T extends Model<any>> extends Repository<T> 
   search?: RequestConfigModifier;
   filter?: FilterRequestConfigModifier;
 
-  requestContext?: (repository: this) => any;
+  context?: RepositoryContextBuilder<T>;
 
   modelObjectCache: Record<Id, T>;
 
@@ -138,8 +154,8 @@ export default class AjaxRepository<T extends Model<any>> extends Repository<T> 
     this.modelObjectCache = {};
   }
 
-  @action list(options: CollectionOptions = {}, pageIndex?: number): Promise<List<T>> {
-    const request = this.createRequest(this.listUrl || this.collectionUrl, this.listMethod);
+  @action list(options: CollectionOptions<T> = {}, pageIndex?: number): Promise<List<T>> {
+    const request = this.createRequest(this.listUrl || this.collectionUrl, this.listMethod, options.context);
     this.applyCollectionOptionsToRequest(request, options);
 
     const requestConfigModifier = this.listRequestConfigModifier || this.collectionRequestConfigModifier;
@@ -151,7 +167,7 @@ export default class AjaxRepository<T extends Model<any>> extends Repository<T> 
       .then(this.cacheList);
   }
 
-  @action getById(id: string, reload: boolean = false): Promise<T | undefined> {
+  @action getById(id: string, reload: boolean = false, context?: Context<T>): Promise<T | undefined> {
     if (!id) throw new Error('AjaxRepository method \'getById\' called without id argument');
 
     const cachedItem = this.modelObjectCache[id];
@@ -164,7 +180,7 @@ export default class AjaxRepository<T extends Model<any>> extends Repository<T> 
       }
     }
 
-    const request = this.createRequest(this.getByIdUrl || this.memberUrl, this.getByIdMethod, id);
+    const request = this.createRequest(this.getByIdUrl || this.memberUrl, this.getByIdMethod, context, id);
     const requestConfigModifier = this.getByIdRequestConfigModifier;
     if (requestConfigModifier) requestConfigModifier(request.config, id);
 
@@ -195,10 +211,10 @@ export default class AjaxRepository<T extends Model<any>> extends Repository<T> 
     return promise;
   }
 
-  @action add(item: T): Promise<T | undefined> {
+  @action add(item: T, context?: Context<T>): Promise<T | undefined> {
     if (!item) throw new Error('AjaxRepository method \'add\' called without item argument');
 
-    const request = this.createRequest(this.addUrl || this.collectionUrl, this.addMethod, item);
+    const request = this.createRequest(this.addUrl || this.collectionUrl, this.addMethod, context, item);
     const requestConfigModifier = this.addRequestConfigModifier || this.memberRequestConfigModifier;
     if (requestConfigModifier) requestConfigModifier(request.config, item);
 
@@ -208,10 +224,10 @@ export default class AjaxRepository<T extends Model<any>> extends Repository<T> 
       .then(this.cacheMember);
   }
 
-  @action update(item: T): Promise<T | undefined> {
+  @action update(item: T, context?: Context<T>): Promise<T | undefined> {
     if (!item) throw new Error('AjaxRepository method \'update\' called without item argument');
 
-    const request = this.createRequest(this.updateUrl || this.memberUrl, this.updateMethod, item);
+    const request = this.createRequest(this.updateUrl || this.memberUrl, this.updateMethod, context, item);
     const requestConfigModifier = this.updateRequestConfigModifier || this.memberRequestConfigModifier;
     if (requestConfigModifier) requestConfigModifier(request.config, item);
 
@@ -221,10 +237,10 @@ export default class AjaxRepository<T extends Model<any>> extends Repository<T> 
       .then(this.cacheMember);
   }
 
-  @action delete(item: T): Promise<any> {
+  @action delete(item: T, context?: Context<T>): Promise<any> {
     if (!item) throw new Error('AjaxRepository method \'delete\' called without item argument');
 
-    const request = this.createRequest(this.deleteUrl || this.memberUrl, this.deleteMethod, item);
+    const request = this.createRequest(this.deleteUrl || this.memberUrl, this.deleteMethod, context, item);
     const requestConfigModifier = this.deleteRequestConfigModifier || this.memberRequestConfigModifier;
     if (requestConfigModifier) requestConfigModifier(request.config, item);
 
@@ -237,8 +253,8 @@ export default class AjaxRepository<T extends Model<any>> extends Repository<T> 
       });
   }
 
-  @action deleteAll(options: CollectionOptions = {}): Promise<any> {
-    const request = this.createRequest(this.deleteAllUrl || this.collectionUrl, this.deleteAllMethod);
+  @action deleteAll(options: CollectionOptions<T> = {}): Promise<any> {
+    const request = this.createRequest(this.deleteAllUrl || this.collectionUrl, this.deleteAllMethod, options.context);
     this.applyCollectionOptionsToRequest(request, options);
     const requestConfigModifier = this.deleteAllRequestConfigModifier || this.collectionRequestConfigModifier;
     if (requestConfigModifier) requestConfigModifier(request.config, options);
@@ -259,7 +275,7 @@ export default class AjaxRepository<T extends Model<any>> extends Repository<T> 
       });
   }
 
-  @action reload(item: T): Promise<T | undefined> {
+  @action reload(item: T, context?: Context<T>): Promise<T | undefined> {
     if (!item.id) {
       throw new Error('Item must have `id` to reload');
     }
@@ -305,7 +321,7 @@ export default class AjaxRepository<T extends Model<any>> extends Repository<T> 
     this.modelObjectCache = {};
   });
 
-  protected applyCollectionOptionsToRequest(request: AjaxRequest, options: CollectionOptions) {
+  protected applyCollectionOptionsToRequest(request: AjaxRequest, options: CollectionOptions<T>) {
     if (options.filters && Object.keys(options.filters).length) {
       const filterFunction = this.filter;
       if (!filterFunction) throw new Error('AjaxRepository instance has no filter function');
@@ -323,16 +339,24 @@ export default class AjaxRepository<T extends Model<any>> extends Repository<T> 
     }
   }
 
-  protected createRequest(url?: Url<T>, method?: string, value?: Id | T) {
+  protected createRequest(url?: Url<T>, method?: string, context?: Context<T>, value?: Id | T) {
+    const mergedContext = {
+      repository: this,
+      ...(typeof this.context === 'function' ? this.context(this) : this.context),
+      ...context,
+    };
     if (url && typeof url !== 'string') {
-      if (!value) throw new Error('Must provide item for dynamic URL');
-      url = url.call(this, value);
+      const memberParams = typeof value === 'undefined' ? undefined : (
+        typeof value === 'string'
+          ? {memberId: value, member: this.modelObjectCache[value]}
+          : {memberId: value.id, member: value}
+      );
+      url = url.call(this, {context: mergedContext, ...memberParams});
     }
-    const options = {} as AjaxRequestConfig;
+    const options = {context} as AjaxRequestConfig;
     if (method) {
       options.method = method;
     }
-    options.context = this.requestContext ? this.requestContext(this) : {repository: this};
     if (!this.client) {
       this.client = new AjaxClient();
     }
@@ -351,9 +375,9 @@ export default class AjaxRepository<T extends Model<any>> extends Repository<T> 
   }
 }
 
-export function listPaginationRequestConfigModifier(
+export function listPaginationRequestConfigModifier<T extends Model<any>>(
   requestConfig: AjaxRequestConfig,
-  options: CollectionOptions,
+  options: CollectionOptions<T>,
   pageIndex: number = 0,
 ) {
   if (options.pageSize) {

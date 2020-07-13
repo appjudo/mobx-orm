@@ -4,8 +4,9 @@ import { action, observable, IObservableArray } from 'mobx';
 import lodash from 'lodash';
 
 import Repository from './Repository';
-import { List, CollectionOptions, ModelObject } from './types';
+import { List, CollectionOptions } from './types';
 import { getObservableListFromArray } from './ObservableList';
+import { Model } from 'index';
 
 type FilterFunction<T> = (value: string | undefined) => ((item: T) => boolean);
 type SortByIteratee<T> = string | ((a: T) => any);
@@ -22,7 +23,7 @@ export interface MockRepositoryConfig<T> {
   sort?: {[key: string]: SortConfig<T>};
 }
 
-export default class MockRepository<T extends ModelObject> extends Repository<T> {
+export default class MockRepository<T extends Model<any>> extends Repository<T> {
   @observable private _data: IObservableArray<T>;
   @observable private _config: MockRepositoryConfig<T>;
 
@@ -76,7 +77,7 @@ export default class MockRepository<T extends ModelObject> extends Repository<T>
     throw new Error('Not implemented yet');
   }
 
-  @action list(options: CollectionOptions = {}, pageIndex?: number): Promise<List<T>> {
+  @action list(options: CollectionOptions<T> = {}, pageIndex?: number): Promise<List<T>> {
     return new Promise(action((resolve: Function, reject: Function) => {
       setTimeout(() => {
         let data = this._data.slice(0);
@@ -128,7 +129,7 @@ export default class MockRepository<T extends ModelObject> extends Repository<T>
     }));
   }
 
-  @action async deleteAll(options: CollectionOptions = {}): Promise<List<T>> {
+  @action async deleteAll(options: CollectionOptions<T> = {}): Promise<List<T>> {
     this._data.replace([]);
     return this._data;
   }

@@ -4,9 +4,10 @@
 
 import qs from 'qs';
 import AjaxClient from './AjaxClient';
-import { Awaitable, CollectionOptions, Filters, Params } from './types';
+import { Awaitable, CollectionOptions, Filters, Id, Params } from './types';
 
 import { isUndefined } from './utils';
+import { Model } from 'index';
 
 export interface AjaxRequestConfig extends Omit<RequestInit, 'headers'> {
   client?: AjaxClient;
@@ -27,9 +28,10 @@ export type RequestConfigModifier = (requestConfig: AjaxRequestConfig, value: st
 export type FilterRequestConfigModifier =
   (requestConfig: AjaxRequestConfig, filters: Filters) => void;
 
-export type ItemRequestConfigModifier<T> = (requestConfig: AjaxRequestConfig, item: T) => void;
-export type ListRequestConfigModifier<T> =
-  (requestConfig: AjaxRequestConfig, options: CollectionOptions, pageIndex?: number) => void;
+export type IdRequestConfigModifier = (requestConfig: AjaxRequestConfig, id: Id) => void;
+export type ItemRequestConfigModifier<T extends Model<any>> = (requestConfig: AjaxRequestConfig, item: T) => void;
+export type ListRequestConfigModifier<T extends Model<any>> =
+  (requestConfig: AjaxRequestConfig, options: CollectionOptions<T>, pageIndex?: number) => void;
 
 interface ResponseErrorOptions {
   request: Request;

@@ -3,46 +3,57 @@
 /* eslint-disable class-methods-use-this */
 
 import { action } from 'mobx';
-import { CollectionOptions, List, ModelObject, ObservableList } from './types';
+import { CollectionOptions, Context, List, ModelObject, ObservableList } from './types';
+import Model from './Model';
 
-export default abstract class Repository<T extends ModelObject> {
+
+export interface RepositoryContext<T extends Model<any>> extends Context<T> {
+  repository: Repository<T>;
+}
+
+export type RepositoryContextBuilder<T extends Model<any>> =
+  RepositoryContext<T> | ((repository: Repository<T>) => any);
+
+export default abstract class Repository<T extends Model<any>> {
   idKey: keyof T = 'id';
 
-  abstract async list(options?: CollectionOptions, pageIndex?: number): Promise<List<T>>;
-  abstract async getById(id: string, reload: boolean): Promise<T | undefined>;
-  abstract async add(item: T): Promise<T | undefined>;
-  abstract async update(item: T): Promise<T | undefined>;
-  abstract async delete(item: T): Promise<any>;
-  abstract async deleteAll(options?: CollectionOptions): Promise<List<T>>;
-  abstract async reload(item: T): Promise<T | undefined>;
+  context?: RepositoryContextBuilder<T>;
 
-  @action listObservable(options?: CollectionOptions): ObservableList<T> {
+  abstract async list(options?: CollectionOptions<T>, pageIndex?: number): Promise<List<T>>;
+  abstract async getById(id: string, reload: boolean, context?: Context<T>): Promise<T | undefined>;
+  abstract async add(item: T, context?: Context<T>): Promise<T | undefined>;
+  abstract async update(item: T, context?: Context<T>): Promise<T | undefined>;
+  abstract async delete(item: T, context?: Context<T>): Promise<any>;
+  abstract async deleteAll(options?: CollectionOptions<T>): Promise<List<T>>;
+  abstract async reload(item: T, context?: Context<T>): Promise<T | undefined>;
+
+  @action listObservable(options?: CollectionOptions<T>): ObservableList<T> {
     return new ObservableList(() => this.list(options));
   }
 }
 
-export class EmptyRepository<T extends ModelObject> extends Repository<T> {
-  @action async list(options?: CollectionOptions): Promise<List<T>> {
+export class EmptyRepository<T extends Model<any>> extends Repository<T> {
+  @action async list(): Promise<List<T>> {
     return [];
   }
 
-  @action async getById(id: string): Promise<T | undefined> {
+  @action async getById(): Promise<T | undefined> {
     return undefined;
   }
 
-  @action async add(item: T): Promise<T> {
+  @action async add(): Promise<T> {
     throw new Error("Can't add items to EmptyRepository");
   }
 
-  @action async update(item: T): Promise<T> {
+  @action async update(): Promise<T> {
     throw new Error("Can't update items in EmptyRepository");
   }
 
   /* eslint-disable-next-line no-empty-function */
-  @action async delete(item: T): Promise<any> {}
+  @action async delete(): Promise<any> {}
 
   /* eslint-disable-next-line no-empty-function */
-  @action async deleteAll(options?: CollectionOptions): Promise<any> {}
+  @action async deleteAll(): Promise<any> {}
 
   @action async reload(item: T): Promise<T | undefined> {
     return item;

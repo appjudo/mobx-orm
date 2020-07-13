@@ -7,6 +7,10 @@ export {
 export {
   default as AjaxRepository,
   AjaxRepositoryConfig,
+  AjaxRepositoryContext,
+  DynamicUrl,
+  StaticUrl,
+  Url,
   listPaginationRequestConfigModifier,
 } from './AjaxRepository';
 export {
@@ -22,7 +26,7 @@ export { default as Collection, EmptyCollection, PaginatedCollection } from './C
 export { default as MockRepository, MockRepositoryConfig } from './MockRepository';
 export { default as MockStorage } from './MockStorage';
 export { default as Model } from './Model';
-export { default as Repository, EmptyRepository } from './Repository';
+export { default as Repository, EmptyRepository, RepositoryContext } from './Repository';
 export * from './types';
 export * from './utils';
 export {

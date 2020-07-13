@@ -1,6 +1,7 @@
 // Copyright (c) 2017-2020 AppJudo Inc.  MIT License.
 
 import { action, computed, extendObservable, observable } from 'mobx';
+import Model from './Model';
 import Repository, { EmptyRepository } from './Repository';
 import {
   CollectionOptions,
@@ -8,19 +9,20 @@ import {
   ModelObject,
   ObservableList,
   PaginatedObservableList,
+  Context,
 } from './types';
 import {
   BaseObservableList,
   List,
 } from './ObservableList';
 
-abstract class BaseCollection<T extends ModelObject> {
+abstract class BaseCollection<T extends Model<any>> {
   @observable protected _repository: Repository<T>;
-  @observable protected _options: CollectionOptions;
+  @observable protected _options: CollectionOptions<T>;
 
   protected _data?: BaseObservableList<T>;
 
-  constructor(repository: Repository<T>, options: CollectionOptions = {}) {
+  constructor(repository: Repository<T>, options: CollectionOptions<T> = {}) {
     this._repository = repository;
     this._options = observable({filters: {}, ...options});
   }
@@ -45,11 +47,11 @@ abstract class BaseCollection<T extends ModelObject> {
   }
 
   getById(id: string, reload: boolean = false) {
-    return this._repository.getById(id, reload);
+    return this._repository.getById(id, reload, this._options.context);
   }
 
   @action async add(item: T, append: boolean = false) {
-    const result = await this._repository.add(item);
+    const result = await this._repository.add(item, this._options.context);
     if (append && this._data) {
       if (this._data.isLoading) {
         try {
@@ -65,11 +67,11 @@ abstract class BaseCollection<T extends ModelObject> {
   }
 
   @action update(item: T) {
-    return this._repository.update(item);
+    return this._repository.update(item, this._options.context);
   }
 
   @action async delete(item: T, remove: boolean = false) {
-    const result = await this._repository.delete(item);
+    const result = await this._repository.delete(item, this._options.context);
     if (remove && this._data) {
       if (this._data.isLoading) {
         await this._data.promise;
@@ -83,7 +85,7 @@ abstract class BaseCollection<T extends ModelObject> {
   }
 
   @action async deleteAll(remove: boolean = false) {
-    const result = await this._repository.deleteAll();
+    const result = await this._repository.deleteAll(this._options);
     if (remove && this._data) {
       if (this._data.isLoading) {
         await this._data.promise;
@@ -109,16 +111,20 @@ abstract class BaseCollection<T extends ModelObject> {
     return this._clone({search});
   }
 
-  protected _clone(options: CollectionOptions): this {
+  context(context: Context<T> | undefined) {
+    return this._clone({context});
+  }
+
+  protected _clone(options: CollectionOptions<T>): this {
     options = {...this._options, ...options};
     return new (<any> this.constructor)(this._repository, options);
   }
 }
 
-export default class Collection<T extends ModelObject> extends BaseCollection<T> {
+export default class Collection<T extends Model<any>> extends BaseCollection<T> {
   protected _data?: ObservableList<T>;
 
-  constructor(repository: Repository<T>, options: CollectionOptions = {}) {
+  constructor(repository: Repository<T>, options: CollectionOptions<T> = {}) {
     super(repository, options);
     this._repository = repository;
     this._options = observable({filters: {}, ...options});
@@ -165,10 +171,10 @@ export default class Collection<T extends ModelObject> extends BaseCollection<T>
 
 const DEFAULT_PAGE_SIZE = 10;
 
-export class PaginatedCollection<T extends ModelObject> extends BaseCollection<T> {
+export class PaginatedCollection<T extends Model<any>> extends BaseCollection<T> {
   protected _data?: PaginatedObservableList<T>;
 
-  constructor(repository: Repository<T>, options: CollectionOptions = {}) {
+  constructor(repository: Repository<T>, options: CollectionOptions<T> = {}) {
     super(repository, options);
     if (!this._options.pageSize) {
       extendObservable(this._options, {pageSize: DEFAULT_PAGE_SIZE});
@@ -210,7 +216,7 @@ export class PaginatedCollection<T extends ModelObject> extends BaseCollection<T
   }
 }
 
-export class EmptyCollection<T extends ModelObject> extends Collection<T> {
+export class EmptyCollection<T extends Model<any>> extends Collection<T> {
   constructor() {
     super(new EmptyRepository<T>());
   }
