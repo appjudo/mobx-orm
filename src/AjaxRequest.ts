@@ -4,7 +4,7 @@
 
 import qs from 'qs';
 import AjaxClient from './AjaxClient';
-import { Awaitable, CollectionOptions, Filters, Id, Params } from './types';
+import { Awaitable, CollectionOptions, Filters, HeadersRecord, Id, ParamsRecord } from './types';
 
 import { isUndefined } from './utils';
 import { Model } from 'index';
@@ -13,9 +13,9 @@ export interface AjaxRequestConfig extends Omit<RequestInit, 'headers'> {
   client?: AjaxClient;
   baseUrl?: string;
   url?: string;
-  headers: Record<string, string | undefined>;
-  queryParams: Params;
-  bodyParams: Params;
+  headers: HeadersRecord;
+  queryParams: ParamsRecord;
+  bodyParams: ParamsRecord;
   context: any;
 
   onRequest?: (request: AjaxRequest) => Awaitable<AjaxRequest | null>;
@@ -25,13 +25,29 @@ export interface AjaxRequestConfig extends Omit<RequestInit, 'headers'> {
 }
 
 export type RequestConfigModifier = (requestConfig: AjaxRequestConfig, value: string) => void;
-export type FilterRequestConfigModifier =
-  (requestConfig: AjaxRequestConfig, filters: Filters) => void;
+export type FilterRequestConfigModifier = (requestConfig: AjaxRequestConfig, filters: Filters) => void;
 
-export type IdRequestConfigModifier = (requestConfig: AjaxRequestConfig, id: Id) => void;
-export type ItemRequestConfigModifier<T extends Model<any>> = (requestConfig: AjaxRequestConfig, item: T) => void;
-export type ListRequestConfigModifier<T extends Model<any>> =
-  (requestConfig: AjaxRequestConfig, options: CollectionOptions<T>, pageIndex?: number) => void;
+export type IdRequestConfigModifier<U = void> = (requestConfig: AjaxRequestConfig, id: Id) => U;
+export type ItemRequestConfigModifier<T extends Model<any>, U = void> =
+  (requestConfig: AjaxRequestConfig, item: T) => U;
+export type ListRequestConfigModifier<T extends Model<any>, U = void> =
+  (requestConfig: AjaxRequestConfig, options: CollectionOptions<T>, pageIndex?: number) => U;
+
+export type IdMapper<U> = (id: Id) => U;
+export type ItemMapper<T extends Model<any>, U> = (item: T) => U;
+export type ListOptionsMapper<T extends Model<any>, U> =
+  (options: CollectionOptions<T>, pageIndex?: number) => U;
+
+export interface RequestMapperResult {
+  headers?: HeadersRecord;
+  body?: BodyInit;
+  bodyParams?: ParamsRecord;
+  queryParams?: ParamsRecord;
+}
+
+export type IdRequestMapper = IdMapper<RequestMapperResult>;
+export type ItemRequestMapper<T extends Model<any>> = ItemMapper<T, RequestMapperResult>;
+export type ListRequestMapper<T extends Model<any>> = ListOptionsMapper<T, RequestMapperResult>;
 
 interface ResponseErrorOptions {
   request: Request;
