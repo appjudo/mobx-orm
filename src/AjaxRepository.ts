@@ -416,13 +416,22 @@ export default class AjaxRepository<T extends Model<any>> extends Repository<T> 
   }
 }
 
+export function listPaginationRequestMapper<T extends Model<any>>(
+  options: CollectionOptions<T>,
+  pageIndex: number = 0,
+) {
+  return options.pageSize ? {
+    queryParams: {
+      pageSize: options.pageSize,
+      startIndex: options.pageSize * pageIndex,
+    },
+  } : {};
+}
+
 export function listPaginationRequestConfigModifier<T extends Model<any>>(
   requestConfig: AjaxRequestConfig,
   options: CollectionOptions<T>,
   pageIndex: number = 0,
 ) {
-  if (options.pageSize) {
-    requestConfig.queryParams.pageSize = options.pageSize;
-    requestConfig.queryParams.startIndex = options.pageSize * pageIndex;
-  }
+  mergeRequestConfig(requestConfig, listPaginationRequestMapper(options, pageIndex));
 }

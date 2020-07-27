@@ -11,6 +11,7 @@ export {
   DynamicUrl,
   StaticUrl,
   Url,
+  listPaginationRequestMapper,
   listPaginationRequestConfigModifier,
 } from './AjaxRepository';
 export {
@@ -18,7 +19,12 @@ export {
   AjaxRequestConfig,
   FilterRequestConfigModifier,
   getObjectFromHeaders,
+  IdRequestMapper,
+  IdRequestConfigModifier,
+  ItemRequestMapper,
   ItemRequestConfigModifier,
+  ListRequestMapper,
+  ListRequestConfigModifier,
   RequestConfigModifier,
   ResponseError,
 } from './AjaxRequest';
