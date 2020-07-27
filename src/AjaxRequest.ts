@@ -3,11 +3,11 @@
 /* eslint-env browser */
 
 import qs from 'qs';
-import AjaxClient from './AjaxClient';
-import { Awaitable, CollectionOptions, Filters, HeadersRecord, Id, ParamsRecord } from './types';
+import lodash from 'lodash';
 
-import { isUndefined } from './utils';
-import { Model } from 'index';
+import AjaxClient from './AjaxClient';
+import Model from './Model';
+import { Awaitable, CollectionOptions, Filters, HeadersRecord, Id, ParamsRecord } from './types';
 
 export interface AjaxRequestConfig extends Omit<RequestInit, 'headers'> {
   client?: AjaxClient;
@@ -44,6 +44,8 @@ export interface RequestMapperResult {
   bodyParams?: ParamsRecord;
   queryParams?: ParamsRecord;
 }
+
+export type RequestMapper<T> = (value: T) => RequestMapperResult;
 
 export type IdRequestMapper = IdMapper<RequestMapperResult>;
 export type ItemRequestMapper<T extends Model<any>> = ItemMapper<T, RequestMapperResult>;
@@ -176,7 +178,7 @@ export default class AjaxRequest {
     }
 
     Object.keys(requestConfig.headers).forEach(name => {
-      if (isUndefined(requestConfig.headers[name])) {
+      if (lodash.isUndefined(requestConfig.headers[name])) {
         delete requestConfig.headers[name];
       }
     });
@@ -232,12 +234,18 @@ export function cloneRequestConfig(sourceConfig: Partial<AjaxRequestConfig>): Aj
 
 export function mergeRequestConfig(targetConfig: AjaxRequestConfig, ...sourceConfigs: Partial<AjaxRequestConfig>[]): AjaxRequestConfig {
   // TODO: clonedeep?
-  Object.assign(targetConfig, ...sourceConfigs);
-  NESTED_OBJECT_KEYS.forEach((key: keyof AjaxRequestConfig) => {
-    targetConfig[key] = {};
-    sourceConfigs.forEach(config => {
-      if (config[key]) {
-        Object.assign(targetConfig[key], config[key]);
+  sourceConfigs.forEach(sourceConfig => {
+    Object.assign(targetConfig, lodash.omit(sourceConfig, NESTED_OBJECT_KEYS));
+    NESTED_OBJECT_KEYS.forEach((configKey: keyof AjaxRequestConfig) => {
+      targetConfig[configKey] = targetConfig[configKey] || {};
+      if (sourceConfig[configKey]) {
+        Object.keys(sourceConfig[configKey]).forEach(key => {
+          if (lodash.isUndefined(sourceConfig[configKey][key])) {
+            delete targetConfig[configKey][key];
+          } else {
+            targetConfig[configKey][key] = sourceConfig[configKey][key];
+          }
+        });
       }
     });
   });

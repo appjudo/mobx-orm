@@ -6,13 +6,14 @@ import AjaxClient from './AjaxClient';
 import AjaxRequest, {
   AjaxRequestConfig,
   FilterRequestConfigModifier,
-  IdRequestMapper,
   IdRequestConfigModifier,
-  ItemRequestMapper,
+  IdRequestMapper,
   ItemRequestConfigModifier,
-  ListRequestMapper,
+  ItemRequestMapper,
   ListRequestConfigModifier,
+  ListRequestMapper,
   RequestConfigModifier,
+  RequestMapper,
   mergeRequestConfig,
 } from './AjaxRequest';
 
@@ -21,13 +22,12 @@ import Repository, { RepositoryContext, RepositoryContextBuilder } from './Repos
 import {
   CollectionOptions,
   Context,
-  HeadersRecord,
+  Filters,
   Id,
   ItemResponseBodyMapper,
   List,
   ListDeleteAllResponseBodyMapper,
   ListResponseBodyMapper,
-  ParamsRecord,
 } from './types';
 
 export interface AjaxRepositoryContext<T extends Model<any>> extends RepositoryContext<T> {
@@ -98,9 +98,13 @@ export interface AjaxRepositoryConfig<T extends Model<any>> {
   deleteAllRequestConfigModifier?: ListRequestConfigModifier<T>;
   deleteAllResponseBodyMapper?: ListDeleteAllResponseBodyMapper<any>;
 
-  sort?: RequestConfigModifier;
-  search?: RequestConfigModifier;
-  filter?: FilterRequestConfigModifier;
+  sortRequestMapper?: RequestMapper<string>;
+  searchRequestMapper?: RequestMapper<string>;
+  filterRequestMapper?: RequestMapper<Filters>;
+
+  sortRequestConfigModifier?: RequestConfigModifier;
+  searchRequestConfigModifier?: RequestConfigModifier;
+  filterRequestConfigModifier?: FilterRequestConfigModifier;
 
   context?: AjaxRepositoryContextBuilder<T>;
 }
@@ -162,9 +166,13 @@ export default class AjaxRepository<T extends Model<any>> extends Repository<T> 
   deleteAllRequestConfigModifier?: ListRequestConfigModifier<T>;
   deleteAllResponseBodyMapper?: ListResponseBodyMapper<T>;
 
-  sort?: RequestConfigModifier;
-  search?: RequestConfigModifier;
-  filter?: FilterRequestConfigModifier;
+  sortRequestMapper?: RequestMapper<string>;
+  searchRequestMapper?: RequestMapper<string>;
+  filterRequestMapper?: RequestMapper<Filters>;
+
+  sortRequestConfigModifier?: RequestConfigModifier;
+  searchRequestConfigModifier?: RequestConfigModifier;
+  filterRequestConfigModifier?: FilterRequestConfigModifier;
 
   context?: RepositoryContextBuilder<T>;
 
@@ -364,19 +372,31 @@ export default class AjaxRepository<T extends Model<any>> extends Repository<T> 
 
   protected applyCollectionOptionsToRequest(request: AjaxRequest, options: CollectionOptions<T>) {
     if (options.filters && Object.keys(options.filters).length) {
-      const filterFunction = this.filter;
-      if (!filterFunction) throw new Error('AjaxRepository instance has no filter function');
-      filterFunction(request.config, options.filters);
+      if (this.filterRequestConfigModifier) {
+        this.filterRequestConfigModifier(request.config, options.filters);
+      } else if (this.filterRequestMapper) {
+        mergeRequestConfig(request.config, this.filterRequestMapper(options.filters));
+      } else {
+        throw new Error('AjaxRepository instance has no filter capability');
+      }
     }
     if (options.sort) {
-      const sortFunction = this.sort;
-      if (!sortFunction) throw new Error('AjaxRepository instance has no sort function');
-      sortFunction(request.config, options.sort);
+      if (this.sortRequestConfigModifier) {
+        this.sortRequestConfigModifier(request.config, options.sort);
+      } else if (this.sortRequestMapper) {
+        mergeRequestConfig(request.config, this.sortRequestMapper(options.sort));
+      } else {
+        throw new Error('AjaxRepository instance has no sort capability');
+      }
     }
     if (options.search) {
-      const searchFunction = this.search;
-      if (!searchFunction) throw new Error('AjaxRepository instance has no search function');
-      searchFunction(request.config, options.search);
+      if (this.searchRequestConfigModifier) {
+        this.searchRequestConfigModifier(request.config, options.search);
+      } else if (this.searchRequestMapper) {
+        mergeRequestConfig(request.config, this.searchRequestMapper(options.search));
+      } else {
+        throw new Error('AjaxRepository instance has no search capability');
+      }
     }
   }
 

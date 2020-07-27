@@ -22,7 +22,7 @@ export type ListDeleteAllResponseBodyMapper<T> = (data: any, context: any) => Li
 
 export type Filters = Record<string, any>;
 export type HeadersRecord = Record<string, string | number | boolean | undefined>;
-export type ParamsRecord = Record<string, string | number | boolean>;
+export type ParamsRecord = Record<string, string | number | boolean | undefined>;
 
 export interface CollectionOptions<T extends Model<any>> {
   /** Name of sort type to apply. */
