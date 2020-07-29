@@ -205,8 +205,8 @@ export default class AjaxRepository<T extends Model<any>> extends Repository<T> 
 
     const cachedItem = this.modelObjectCache[id];
     if (cachedItem) {
-      if (cachedItem._isLoading) {
-        return cachedItem._promise!;
+      if (cachedItem._orm.isLoading) {
+        return cachedItem._orm.promise!;
       }
       if (cachedItem.isFullyLoaded && !reload) {
         return Promise.resolve(cachedItem);
@@ -228,14 +228,14 @@ export default class AjaxRepository<T extends Model<any>> extends Repository<T> 
       .then((data: any) => responseBodyMapper(data, request.config.context))
       .then(this.cacheMember)
       .then(action((item?: T) => {
-        if (item) item._isLoading = false;
-        if (cachedItem) cachedItem._isLoading = false;
+        if (item) item._orm.isLoading = false;
+        if (cachedItem) cachedItem._orm.isLoading = false;
         return item;
       }));
 
     if (cachedItem) {
-      cachedItem._promise = promise;
-      cachedItem._isLoading = true;
+      cachedItem._orm.loadingPromise = promise;
+      cachedItem._orm.isLoading = true;
       if (!reload) {
         return Promise.resolve(cachedItem);
       }
@@ -348,7 +348,7 @@ export default class AjaxRepository<T extends Model<any>> extends Repository<T> 
   protected cacheMember = action((item?: T) => item && this.cacheItem(item));
 
   cacheItem = action((item: T) => {
-    item.repository = this;
+    item._orm.repository = this;
     const itemId = item[this.idKey] as unknown as Id;
     if (!itemId) {
       return item;

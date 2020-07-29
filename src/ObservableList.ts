@@ -51,7 +51,7 @@ class ObservableArrayObjectHybrid extends ObservableArray {
 }
 
 export abstract class BaseObservableList<T> extends ObservableArrayObjectHybrid implements List<T> {
-  abstract promise: Promise<List<T>>;
+  abstract loadingPromise: Promise<List<T>>;
 
   provider: ListProvider<T>;
 
@@ -72,6 +72,11 @@ export abstract class BaseObservableList<T> extends ObservableArrayObjectHybrid 
     this.versionNumber = versionNumber;
   }
 
+  // Deprecated.
+  @computed get promise() {
+    return this.loadingPromise;
+  }
+
   @action reset() {
     this.replace([]);
     this.totalLength = -1;
@@ -84,12 +89,12 @@ export abstract class BaseObservableList<T> extends ObservableArrayObjectHybrid 
 }
 
 export default class ObservableList<T> extends BaseObservableList<T> {
-  promise: Promise<List<T>>;
+  loadingPromise: Promise<List<T>>;
 
   constructor(provider: ListProvider<T>, initialArray?: List<T>) {
     super(provider);
     const promise = initialArray ? Promise.resolve(initialArray) : provider();
-    this.promise = promise.then(action((data: List<T>) => {
+    this.loadingPromise = promise.then(action((data: List<T>) => {
       this.isLoading = false;
       this.replace(data || []);
       if ('metadata' in data) {
@@ -99,7 +104,7 @@ export default class ObservableList<T> extends BaseObservableList<T> {
       this.totalLength = this.length;
       return data;
     }));
-    this.promise.catch(action((error: Error) => {
+    this.loadingPromise.catch(action((error: Error) => {
       this.reset();
       this.isLoading = false;
       this.error = error;
@@ -110,12 +115,12 @@ export default class ObservableList<T> extends BaseObservableList<T> {
     const clear = options.clear ?? false;
     if (clear) this.reset();
     if (this.isLoading) {
-      return this.promise;
+      return this.loadingPromise;
     }
 
     this.error = undefined;
     this.loadedDate = undefined;
-    this.promise = this.provider().then(action((data: List<T>) => {
+    this.loadingPromise = this.provider().then(action((data: List<T>) => {
       this.isLoading = false;
       this.isReloading = false;
       this.replace(data || []);
@@ -124,7 +129,7 @@ export default class ObservableList<T> extends BaseObservableList<T> {
       this.loadedDate = this.fullyLoadedDate = new Date();
       return data;
     }));
-    this.promise.catch(action((error: Error) => {
+    this.loadingPromise.catch(action((error: Error) => {
       this.replace([]);
       this.isLoading = false;
       this.isReloading = false;
@@ -133,18 +138,18 @@ export default class ObservableList<T> extends BaseObservableList<T> {
 
     this.isLoading = true;
     this.isReloading = true;
-    return this.promise;
+    return this.loadingPromise;
   }
 
   @action preload(): Promise<List<T>> {
-    if (this.isLoading) return this.promise;
+    if (this.isLoading) return this.loadingPromise;
     if (!this.loadedDate) return this.reload();
     return Promise.resolve(this.slice());
   }
 }
 
 export class PaginatedObservableList<T> extends BaseObservableList<T> {
-  promise: Promise<List<T>>;
+  loadingPromise: Promise<List<T>>;
   provider: PaginatedListProvider<T>;
 
   pageSize: number;
@@ -164,7 +169,7 @@ export class PaginatedObservableList<T> extends BaseObservableList<T> {
     this.pages = observable.array();
     this.pagePromises = observable.array();
 
-    this.promise = Promise.resolve([]);
+    this.loadingPromise = Promise.resolve([]);
     this.isLoading = false;
     this.isReloading = false;
     this.isFullyLoaded = false;
@@ -208,7 +213,7 @@ export class PaginatedObservableList<T> extends BaseObservableList<T> {
     // Reload previously loading page indexes into next version.
     previouslyLoadingPageIndexes.forEach(index => this.getPageAtIndex(index));
     if (preload) this.getPageAtIndex(0);
-    return this.promise;
+    return this.loadingPromise;
   }
 
   @action preload(): Promise<List<T | undefined>> {
@@ -217,7 +222,7 @@ export class PaginatedObservableList<T> extends BaseObservableList<T> {
       return Promise.resolve(list.slice());
     }
     if (list.isLoading) {
-      return list.promise;
+      return list.loadingPromise;
     }
     return list.getNextPage();
   }
@@ -297,10 +302,10 @@ export class PaginatedObservableList<T> extends BaseObservableList<T> {
     list.loadingPageCount++;
     this.isLoading = true;
 
-    this.promise = list.promise = Promise.all(lodash.compact(pagePromises)).then(() => {
+    this.loadingPromise = list.loadingPromise = Promise.all(lodash.compact(pagePromises)).then(() => {
       return list;
     });
-    this.promise.catch(() => {});
+    this.loadingPromise.catch(() => {});
   
     return pagePromise;
   }

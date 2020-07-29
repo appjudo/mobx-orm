@@ -55,7 +55,7 @@ abstract class BaseCollection<T extends Model<any>> {
     if (append && this._data) {
       if (this._data.isLoading) {
         try {
-          await this._data.promise;
+          await this._data.loadingPromise;
         } catch (error) {
           console.warn('Promise rejected on ObservableList; cannot append item');
           return result;
@@ -74,7 +74,7 @@ abstract class BaseCollection<T extends Model<any>> {
     const result = await this._repository.delete(item, this._options.context);
     if (remove && this._data) {
       if (this._data.isLoading) {
-        await this._data.promise;
+        await this._data.loadingPromise;
       }
       const index = this._data.findIndex(matches(item));
       if (index !== -1) {
@@ -88,7 +88,7 @@ abstract class BaseCollection<T extends Model<any>> {
     const result = await this._repository.deleteAll(this._options);
     if (remove && this._data) {
       if (this._data.isLoading) {
-        await this._data.promise;
+        await this._data.loadingPromise;
       }
       this._data.splice(0, this.length);
     }
