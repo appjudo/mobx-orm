@@ -278,7 +278,7 @@ function removeUndefinedValues(data: any): any {
     return lodash.without(data, undefined).map(removeUndefinedValues);
   }
   if (lodash.isObject(data)) {
-    return lodash.omitBy(data, key => data[key] === undefined);
+    return lodash.omitBy(data, value => (value === undefined));
   }
   return data;
 }
