@@ -10,12 +10,14 @@ import Model from './Model';
 import { Awaitable, CollectionOptions, Filters, HeadersRecord, Id, ParamsRecord } from './types';
 
 export interface AjaxRequestConfig extends Omit<RequestInit, 'headers'> {
+  headers: HeadersRecord;
+  bodyParams: ParamsRecord;
+  queryParams: ParamsRecord;
+
   client?: AjaxClient;
   baseUrl?: string;
   url?: string;
-  headers: HeadersRecord;
-  queryParams: ParamsRecord;
-  bodyParams: ParamsRecord;
+  bodyJsonData?: any;
   context: any;
 
   onRequest?: (request: AjaxRequest) => Awaitable<AjaxRequest | null>;
@@ -29,20 +31,21 @@ export type FilterRequestConfigModifier = (requestConfig: AjaxRequestConfig, fil
 
 export type IdRequestConfigModifier<U = void> = (requestConfig: AjaxRequestConfig, id: Id) => U;
 export type ItemRequestConfigModifier<T extends Model<any>, U = void> =
-  (requestConfig: AjaxRequestConfig, item: T) => U;
+  (requestConfig: AjaxRequestConfig, item: Partial<T>) => U;
 export type ListRequestConfigModifier<T extends Model<any>, U = void> =
   (requestConfig: AjaxRequestConfig, options: CollectionOptions<T>, pageIndex?: number) => U;
 
 export type IdMapper<U> = (id: Id) => U;
-export type ItemMapper<T extends Model<any>, U> = (item: T) => U;
+export type ItemMapper<T extends Model<any>, U> = (item: Partial<T>) => U;
 export type ListOptionsMapper<T extends Model<any>, U> =
   (options: CollectionOptions<T>, pageIndex?: number) => U;
 
 export interface RequestMapperResult {
   headers?: HeadersRecord;
-  body?: BodyInit;
-  bodyParams?: ParamsRecord;
   queryParams?: ParamsRecord;
+  body?: BodyInit;
+  bodyJsonData?: any;
+  bodyParams?: ParamsRecord;
 }
 
 export type RequestMapper<T> = (value: T) => RequestMapperResult;
@@ -87,8 +90,8 @@ export default class AjaxRequest {
   retrying?: boolean;
   promise?: Promise<Response>;
 
-  constructor(config: AjaxRequestConfig) {
-    this.config = config;
+  constructor(config: Partial<AjaxRequestConfig>) {
+    this.config = mergeRequestConfig({} as AjaxRequestConfig, config);
   }
 
   fetch(parseJsonBody: Boolean = false, attemptIndex: number = 0): Promise<Response> {
@@ -177,26 +180,34 @@ export default class AjaxRequest {
       requestConfig.method = 'GET';
     }
 
-    Object.keys(requestConfig.headers).forEach(name => {
-      if (lodash.isUndefined(requestConfig.headers[name])) {
-        delete requestConfig.headers[name];
-      }
-    });
-
-    const queryParamsString = qs.stringify(requestConfig.queryParams);
-    if (queryParamsString) {
-      const urlHasQueryString = (url.indexOf('?') !== -1);
-      url = url + (urlHasQueryString ? '&' : '?') + queryParamsString;
+    if (requestConfig.headers) {
+      requestConfig.headers = removeUndefinedValues(requestConfig.headers);
     }
-    const bodyParamsString = qs.stringify(requestConfig.bodyParams);
-    if (bodyParamsString) {
-      requestConfig.body = bodyParamsString;
+
+    if (requestConfig.queryParams) {
+      const queryParamsString = qs.stringify(removeUndefinedValues(requestConfig.queryParams));
+      if (queryParamsString) {
+        const urlHasQueryString = (url.indexOf('?') !== -1);
+        url = url + (urlHasQueryString ? '&' : '?') + queryParamsString;
+      }
+    }
+
+    if (!requestConfig.body) {
+      if (requestConfig.bodyJsonData) {
+        requestConfig.body = JSON.stringify(removeUndefinedValues(requestConfig.bodyJsonData));
+      } else if (requestConfig.bodyParams) {
+        const bodyParamsString = qs.stringify(removeUndefinedValues(requestConfig.bodyParams));
+        if (bodyParamsString) {
+          requestConfig.body = bodyParamsString;
+        }
+      }
     }
 
     delete requestConfig.client;
     delete requestConfig.baseUrl;
     delete requestConfig.url;
     delete requestConfig.queryParams;
+    delete requestConfig.bodyJsonData;
     delete requestConfig.bodyParams;
     delete requestConfig.context;
     delete requestConfig.onRequest;
@@ -234,18 +245,14 @@ export function cloneRequestConfig(sourceConfig: Partial<AjaxRequestConfig>): Aj
 
 export function mergeRequestConfig(targetConfig: AjaxRequestConfig, ...sourceConfigs: Partial<AjaxRequestConfig>[]): AjaxRequestConfig {
   // TODO: clonedeep?
+  NESTED_OBJECT_KEYS.forEach((configKey: keyof AjaxRequestConfig) => {
+    if (!targetConfig[configKey]) targetConfig[configKey] = {};
+  });
   sourceConfigs.forEach(sourceConfig => {
     Object.assign(targetConfig, lodash.omit(sourceConfig, NESTED_OBJECT_KEYS));
     NESTED_OBJECT_KEYS.forEach((configKey: keyof AjaxRequestConfig) => {
-      targetConfig[configKey] = targetConfig[configKey] || {};
       if (sourceConfig[configKey]) {
-        Object.keys(sourceConfig[configKey]).forEach(key => {
-          if (lodash.isUndefined(sourceConfig[configKey][key])) {
-            delete targetConfig[configKey][key];
-          } else {
-            targetConfig[configKey][key] = sourceConfig[configKey][key];
-          }
-        });
+        Object.assign(targetConfig[configKey], sourceConfig[configKey]);
       }
     });
   });
@@ -259,4 +266,14 @@ export function getObjectFromHeaders(headers: Headers): Record<string, string> {
     result[key] = value;
   });
   return result;
+}
+
+function removeUndefinedValues(data: any): any {
+  if (lodash.isArray(data)) {
+    return lodash.without(data, undefined).map(removeUndefinedValues);
+  }
+  if (lodash.isObject(data)) {
+    return lodash.omitBy(data, key => data[key] === undefined);
+  }
+  return data;
 }

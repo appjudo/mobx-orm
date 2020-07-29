@@ -151,7 +151,7 @@ export default class AjaxRepository<T extends Model<any>> extends Repository<T> 
   updateMethod: string = 'PATCH';
   updateUrl?: DynamicUrl<T>;
   updateRequestMapper?: ItemRequestMapper<T>;
-  updateRequestConfigModifier?: ItemRequestConfigModifier<any>;
+  updateRequestConfigModifier?: ItemRequestConfigModifier<T>;
   updateResponseBodyMapper?: ItemResponseBodyMapper<T>;
 
   deleteMethod: string = 'DELETE';
@@ -201,7 +201,7 @@ export default class AjaxRepository<T extends Model<any>> extends Repository<T> 
   }
 
   @action getById(id: string, reload: boolean = false, context?: Context<T>): Promise<T | undefined> {
-    if (!id) throw new Error('AjaxRepository method \'getById\' called without id argument');
+    if (!id) throw new Error('AjaxRepository method \`getById\` called without id argument');
 
     const cachedItem = this.modelObjectCache[id];
     if (cachedItem) {
@@ -245,7 +245,7 @@ export default class AjaxRepository<T extends Model<any>> extends Repository<T> 
   }
 
   @action add(item: T, context?: Context<T>): Promise<T | undefined> {
-    if (!item) throw new Error('AjaxRepository method \'add\' called without item argument');
+    if (!item) throw new Error('AjaxRepository method \`add\` called without item argument');
 
     const request = this.createRequest(this.addUrl || this.collectionUrl, this.addMethod, context, item);
 
@@ -261,16 +261,19 @@ export default class AjaxRepository<T extends Model<any>> extends Repository<T> 
       .then(this.cacheMember);
   }
 
-  @action update(item: T, context?: Context<T>): Promise<T | undefined> {
-    if (!item) throw new Error('AjaxRepository method \'update\' called without item argument');
+  @action update(values: Partial<T>, context?: Context<T>): Promise<T | undefined> {
+    if (!values) throw new Error('AjaxRepository method \`update\` called without values');
 
-    const request = this.createRequest(this.updateUrl || this.memberUrl, this.updateMethod, context, item);
+    const id = values[this.idKey] as unknown as string;
+    if (!id) throw new Error(`AjaxRepository method \`update\` requires values to include \`${this.idKey}\``);
+
+    const request = this.createRequest(this.updateUrl || this.memberUrl, this.updateMethod, context, id);
 
     const requestMapper = this.updateRequestMapper || this.memberRequestMapper;
-    if (requestMapper) mergeRequestConfig(request.config, requestMapper(item));
+    if (requestMapper) mergeRequestConfig(request.config, requestMapper(values));
 
     const requestConfigModifier = this.updateRequestConfigModifier || this.memberRequestConfigModifier;
-    if (requestConfigModifier) requestConfigModifier(request.config, item);
+    if (requestConfigModifier) requestConfigModifier(request.config, values);
 
     const responseBodyMapper = this.updateResponseBodyMapper || this.memberResponseBodyMapper;
     return request.fetchJson()
@@ -279,7 +282,7 @@ export default class AjaxRepository<T extends Model<any>> extends Repository<T> 
   }
 
   @action delete(item: T, context?: Context<T>): Promise<any> {
-    if (!item) throw new Error('AjaxRepository method \'delete\' called without item argument');
+    if (!item) throw new Error('AjaxRepository method \`delete\` called without item argument');
 
     const request = this.createRequest(this.deleteUrl || this.memberUrl, this.deleteMethod, context, item);
 

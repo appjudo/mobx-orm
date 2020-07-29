@@ -5,6 +5,10 @@ import { action, computed, observable } from 'mobx';
 import Repository from './Repository';
 import { Id, ModelObject } from './types';
 
+interface UpdateOptions<T extends Model<T>> {
+  repository?: Repository<T>;
+}
+
 export default abstract class Model<T extends Model<T>> {
   @observable id?: Id;
   @observable _isLoading: boolean = false;
@@ -16,9 +20,18 @@ export default abstract class Model<T extends Model<T>> {
     return true;
   }
 
-  @action update(values: Partial<T> = {}) {
+  @action update(values: Partial<T> = {}, options: UpdateOptions<T>) {
+    const repository = options.repository || this.repository;
+    if (!repository) {
+      throw new Error('Model `update` method called without repository');
+    }
+    const itemId = this[repository.idKey as keyof this] as unknown as Id;
+    if (!itemId) {
+      throw new Error(`Model \`update\` requires \`${repository.idKey}\` to be present`);
+    }
+    const result = repository.update(values);
     Object.assign(this, values);
-    this.save();
+    return result;
   }
 
   @action save(repository?: Repository<T>) {
