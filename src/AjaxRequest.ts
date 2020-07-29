@@ -7,7 +7,8 @@ import lodash from 'lodash';
 
 import AjaxClient from './AjaxClient';
 import Model from './Model';
-import { Awaitable, CollectionOptions, Filters, HeadersRecord, Id, ParamsRecord } from './types';
+import { Awaitable, CollectionOptions, Filters, HeadersRecord, Id, ParamsRecord, Context } from './types';
+import { StaticUrl } from 'AjaxRepository';
 
 export interface AjaxRequestConfig extends Omit<RequestInit, 'headers'> {
   headers: HeadersRecord;
@@ -18,7 +19,7 @@ export interface AjaxRequestConfig extends Omit<RequestInit, 'headers'> {
   baseUrl?: string;
   url?: string;
   bodyJsonData?: any;
-  context: any;
+  context?: Context<any>;
 
   onRequest?: (request: AjaxRequest) => Awaitable<AjaxRequest | null>;
   onResponse?: (response: Response, request: AjaxRequest) => Awaitable<Response | null>;
@@ -41,11 +42,15 @@ export type ListOptionsMapper<T extends Model<any>, U> =
   (options: CollectionOptions<T>, pageIndex?: number) => U;
 
 export interface RequestMapperResult {
+  method?: string;
+  baseUrl?: StaticUrl;
+  url?: StaticUrl;
   headers?: HeadersRecord;
   queryParams?: ParamsRecord;
   body?: BodyInit;
   bodyJsonData?: any;
   bodyParams?: ParamsRecord;
+  context?: Context<any>;
 }
 
 export type RequestMapper<T> = (value: T) => RequestMapperResult;
@@ -80,7 +85,7 @@ export class ResponseError extends Error {
   }
 }
 
-const NESTED_OBJECT_KEYS: (keyof AjaxRequestConfig)[] = ['headers', 'queryParams', 'bodyParams'];
+const NESTED_OBJECT_KEYS: (keyof AjaxRequestConfig)[] = ['headers', 'queryParams', 'bodyParams', 'context'];
 
 export default class AjaxRequest {
   config: AjaxRequestConfig;
