@@ -38,44 +38,35 @@ export default abstract class Model<T extends Model<T>> {
     return true;
   }
 
-  @action async update(values: Partial<T> = {}, options: UpdateOptions<T> = {}) {
+  @action update(values: Partial<T> = {}, options: UpdateOptions<T> = {}) {
     const repository = options.repository || this._orm.repository;
     if (!repository) {
       throw new Error('Model `update` method called without repository');
     }
-    const itemId = this[repository.idKey as keyof this] as unknown as Id;
+    const item = this as unknown as T;
+    const itemId = item[repository.idKey];
     if (!itemId) {
-      throw new Error(`Model \`update\` requires \`${repository.idKey}\` to be present`);
+      throw new Error(`Model \`update\` requires \`${repository.idKey}\` to be already set`);
     }
-    this._orm.savingPromise = repository.update(values);
-    this._orm.isSaving = true;
-    const result = await this._orm.savingPromise;
-    Object.assign(this, values);
-    this._orm.isSaving = false;
-    return result;
+    return repository.update(item, values);
   }
 
-  @action async save(repository?: Repository<T>) {
+  @action save(repository?: Repository<T>) {
     if (!repository) repository = this._orm.repository;
     if (!repository) {
       throw new Error('Model `save` method called without repository');
     }
-    const idKey = repository.idKey as keyof this;
-    const itemId = this[idKey] as unknown as Id;
-    this._orm.savingPromise = repository[itemId ? 'update' : 'add'](this as unknown as T);
-    this._orm.isSaving = true;
-    const result = await this._orm.savingPromise;
-    if (result && !itemId) this[idKey] = result[repository.idKey] as any;
-    this._orm.isSaving = false;
-    return result;
+    const {idKey} = repository;
+    const item = this as unknown as T;
+    const itemId = item[idKey];
+    return itemId ? repository.update(item) : repository.add(item);
   }
 
-  @action async reload(repository?: Repository<T>) {
+  @action reload(repository?: Repository<T>) {
     if (!repository) repository = this._orm.repository;
     if (!repository) {
       throw new Error('Model `reload` method called without repository');
     }
-    const result = repository.reload(this as unknown as T);
-    return result;
+    return repository.reload(this as unknown as T);
   }
 }

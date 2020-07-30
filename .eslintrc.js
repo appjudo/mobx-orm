@@ -32,9 +32,11 @@ const config = {
 
   rules: {
     // Disable select rules from `extends` packages (above).
+    'no-multi-assign': 0,
     'no-param-reassign': 0,
     'no-plusplus': 0,
     'no-nested-ternary': 0,
+    'no-unused-expressions': 0,
     'no-use-before-define': 0,
     'object-curly-spacing': 0,
     'prefer-template': 0,

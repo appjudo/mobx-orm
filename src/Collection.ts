@@ -66,8 +66,8 @@ abstract class BaseCollection<T extends Model<any>> {
     return result;
   }
 
-  @action update(item: T) {
-    return this._repository.update(item, this._options.context);
+  @action update(item: T, values?: Partial<T>) {
+    return this._repository.update(item, values, this._options.context);
   }
 
   @action async delete(item: T, remove: boolean = false) {

@@ -1,7 +1,8 @@
 // Copyright (c) 2017-2020 AppJudo Inc.  MIT License.
 
 import { List } from './ObservableList';
-import { Model, Repository } from 'index';
+import Model from './Model';
+import Repository from './Repository';
 
 export { default as ObservableList, List, PaginatedObservableList } from './ObservableList';
 

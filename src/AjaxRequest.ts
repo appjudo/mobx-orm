@@ -6,9 +6,9 @@ import qs from 'qs';
 import lodash from 'lodash';
 
 import AjaxClient from './AjaxClient';
+import { StaticUrl } from './AjaxRepository';
 import Model from './Model';
 import { Awaitable, CollectionOptions, Filters, HeadersRecord, Id, ParamsRecord, Context } from './types';
-import { StaticUrl } from 'AjaxRepository';
 
 export interface AjaxRequestConfig extends Omit<RequestInit, 'headers'> {
   headers: HeadersRecord;

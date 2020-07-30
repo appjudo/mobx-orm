@@ -200,13 +200,13 @@ export default class AjaxRepository<T extends Model<any>> extends Repository<T> 
       .then(this.cacheList);
   }
 
-  @action getById(id: string, reload: boolean = false, context?: Context<T>): Promise<T | undefined> {
-    if (!id) throw new Error('AjaxRepository method \`getById\` called without id argument');
+  @action async getById(id: string, reload: boolean = false, context?: Context<T>): Promise<T | undefined> {
+    if (!id) throw new Error('AjaxRepository method `getById` called without id argument');
 
     const cachedItem = this.modelObjectCache[id];
     if (cachedItem) {
       if (cachedItem._orm.isLoading) {
-        return cachedItem._orm.promise!;
+        return cachedItem._orm.loadingPromise!;
       }
       if (cachedItem.isFullyLoaded && !reload) {
         return Promise.resolve(cachedItem);
@@ -226,26 +226,20 @@ export default class AjaxRepository<T extends Model<any>> extends Repository<T> 
         throw error;
       })
       .then((data: any) => responseBodyMapper(data, request.config.context))
-      .then(this.cacheMember)
-      .then(action((item?: T) => {
-        if (item) item._orm.isLoading = false;
-        if (cachedItem) cachedItem._orm.isLoading = false;
-        return item;
-      }));
+      .then(this.cacheMember);
 
     if (cachedItem) {
       cachedItem._orm.loadingPromise = promise;
-      cachedItem._orm.isLoading = true;
-      if (!reload) {
-        return Promise.resolve(cachedItem);
-      }
+      cachedItem._orm.isLoading = cachedItem._orm.isReloading = true;
     }
-
-    return promise;
+    const item = await promise;
+    if (item) item._orm.isLoading = item._orm.isReloading = false;
+    if (cachedItem) cachedItem._orm.isLoading = cachedItem._orm.isReloading = false;
+    return item;
   }
 
-  @action add(item: T, context?: Context<T>): Promise<T | undefined> {
-    if (!item) throw new Error('AjaxRepository method \`add\` called without item argument');
+  @action async add(item: T, context?: Context<T>): Promise<T | undefined> {
+    if (!item) throw new Error('AjaxRepository method `add` called without item argument');
 
     const request = this.createRequest(this.addUrl || this.collectionUrl, this.addMethod, context, item);
 
@@ -256,33 +250,43 @@ export default class AjaxRepository<T extends Model<any>> extends Repository<T> 
     if (requestConfigModifier) requestConfigModifier(request.config, item);
 
     const responseBodyMapper = this.addResponseBodyMapper || this.memberResponseBodyMapper;
-    return request.fetchJson()
+    item._orm.savingPromise = request.fetchJson()
       .then((data: any) => responseBodyMapper(data, request.config.context))
       .then(this.cacheMember);
+    item._orm.isSaving = true;
+    const result = await item._orm.savingPromise;
+    if (result?.[this.idKey] && !item[this.idKey]) item[this.idKey] = result[this.idKey];
+    item._orm.isSaving = false;
+    return result;
   }
 
-  @action update(values: Partial<T>, context?: Context<T>): Promise<T | undefined> {
-    if (!values) throw new Error('AjaxRepository method \`update\` called without values');
+  @action async update(item: T, values?: Partial<T>, context?: Context<T>): Promise<T | undefined> {
+    if (!item) throw new Error('AjaxRepository method `delete` called without item argument');
 
-    const id = values[this.idKey] as unknown as string;
-    if (!id) throw new Error(`AjaxRepository method \`update\` requires values to include \`${this.idKey}\``);
+    const id = item[this.idKey] as unknown as string;
+    if (!id) throw new Error(`AjaxRepository method \`update\` requires \`${this.idKey}\` to be set already`);
 
-    const request = this.createRequest(this.updateUrl || this.memberUrl, this.updateMethod, context, id);
+    const request = this.createRequest(this.updateUrl || this.memberUrl, this.updateMethod, context, item);
 
     const requestMapper = this.updateRequestMapper || this.memberRequestMapper;
-    if (requestMapper) mergeRequestConfig(request.config, requestMapper(values));
+    if (requestMapper) mergeRequestConfig(request.config, requestMapper(values || item));
 
     const requestConfigModifier = this.updateRequestConfigModifier || this.memberRequestConfigModifier;
-    if (requestConfigModifier) requestConfigModifier(request.config, values);
+    if (requestConfigModifier) requestConfigModifier(request.config, values || item);
 
     const responseBodyMapper = this.updateResponseBodyMapper || this.memberResponseBodyMapper;
-    return request.fetchJson()
+    item._orm.savingPromise = request.fetchJson()
       .then((data: any) => responseBodyMapper(data, request.config.context))
       .then(this.cacheMember);
+    item._orm.isSaving = true;
+    const result = await item._orm.savingPromise;
+    if (values) Object.assign(item, values);
+    item._orm.isSaving = false;
+    return result;
   }
 
   @action delete(item: T, context?: Context<T>): Promise<any> {
-    if (!item) throw new Error('AjaxRepository method \`delete\` called without item argument');
+    if (!item) throw new Error('AjaxRepository method `delete` called without item argument');
 
     const request = this.createRequest(this.deleteUrl || this.memberUrl, this.deleteMethod, context, item);
 
@@ -327,15 +331,22 @@ export default class AjaxRepository<T extends Model<any>> extends Repository<T> 
       });
   }
 
-  @action reload(item: T, context?: Context<T>): Promise<T | undefined> {
-    if (!item.id) {
-      throw new Error('Item must have `id` to reload');
+  @action async reload(item: T, context?: Context<T>): Promise<T | undefined> {
+    if (!item) throw new Error('AjaxRepository method `delete` called without item argument');
+
+    const itemId = item[this.idKey] as unknown as string;
+    if (!itemId) {
+      throw new Error(`Item must have \`${this.idKey}\` to reload`);
     }
-    if (!this.modelObjectCache[item.id]) {
+    if (!this.modelObjectCache[itemId]) {
       // Cache item so that getById will update this item instead of caching a different instance.
-      this.modelObjectCache[item.id] = item;
+      this.modelObjectCache[itemId] = item;
     }
-    return this.getById(item.id, true);
+    item._orm.loadingPromise = this.getById(itemId, true, context);
+    item._orm.isLoading = item._orm.isReloading = true;
+    const result = await item._orm.loadingPromise;
+    item._orm.isLoading = item._orm.isReloading = false;
+    return result;
   }
 
   protected cacheList = action((list: List<T>) => {

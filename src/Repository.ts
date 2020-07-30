@@ -22,7 +22,7 @@ export default abstract class Repository<T extends Model<any>> {
   abstract async list(options?: CollectionOptions<T>, pageIndex?: number): Promise<List<T>>;
   abstract async getById(id: string, reload: boolean, context?: Context<T>): Promise<T | undefined>;
   abstract async add(item: T, context?: Context<T>): Promise<T | undefined>;
-  abstract async update(item: Partial<T>, context?: Context<T>): Promise<T | undefined>;
+  abstract async update(item: T, values?: Partial<T>, context?: Context<T>): Promise<T | undefined>;
   abstract async delete(item: T, context?: Context<T>): Promise<any>;
   abstract async deleteAll(options?: CollectionOptions<T>): Promise<List<T>>;
   abstract async reload(item: T, context?: Context<T>): Promise<T | undefined>;
