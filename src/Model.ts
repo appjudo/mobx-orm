@@ -3,11 +3,7 @@
 import { action, computed, observable } from 'mobx';
 
 import Repository from './Repository';
-import { Id, ModelObject } from './types';
-
-interface UpdateOptions<T extends Model<T>> {
-  repository?: Repository<T>;
-}
+import { Id, ModelObject, Context } from './types';
 
 class ModelOrmData<T extends Model<T>> {
   @observable isLoading: boolean = false;
@@ -38,8 +34,8 @@ export default abstract class Model<T extends Model<T>> {
     return true;
   }
 
-  @action update(values: Partial<T> = {}, options: UpdateOptions<T> = {}) {
-    const repository = options.repository || this._orm.repository;
+  @action update(values: Partial<T> = {}, context: Context<T> = {}) {
+    const repository = context.repository || this._orm.repository;
     if (!repository) {
       throw new Error('Model `update` method called without repository');
     }
@@ -51,8 +47,8 @@ export default abstract class Model<T extends Model<T>> {
     return repository.update(item, values);
   }
 
-  @action save(repository?: Repository<T>) {
-    if (!repository) repository = this._orm.repository;
+  @action save(context: Context<T> = {}) {
+    const repository = context.repository || this._orm.repository;
     if (!repository) {
       throw new Error('Model `save` method called without repository');
     }

@@ -13,13 +13,13 @@ export interface Context<T extends Model<any>> extends Record<string, any> {
   repository?: Repository<T>;
 }
 
-// export type ItemResponseMapper<T> = (response: Response, context: any) => T | undefined;
-// export type ListResponseMapper<T> = (response: Response, context: any) => List<T>;
-// export type ListDeleteAllResponseMapper<T> = (response: Response, context: any) => List<T> | boolean;
+// export type CollectionResponseMapper<T> = (response: Response, context: any) => List<T>;
+// export type DeleteAllResponseMapper<T> = (response: Response, context: any) => List<T> | boolean;
+// export type MemberResponseMapper<T> = (response: Response, context: any) => T | undefined;
 
-export type ItemResponseBodyMapper<T> = (data: any, context: any) => T | undefined;
-export type ListResponseBodyMapper<T> = (data: any, context: any) => List<T>;
-export type ListDeleteAllResponseBodyMapper<T> = (data: any, context: any) => List<T> | boolean;
+export type CollectionResponseBodyMapper<T> = (data: any, context: any) => List<T>;
+export type DeleteAllResponseBodyMapper<T> = (data: any, context: any) => List<T> | boolean;
+export type MemberResponseBodyMapper<T> = (data: any, context: any) => T | undefined;
 
 export type Filters = Record<string, any>;
 export type HeadersRecord = Record<string, string | number | boolean | undefined>;

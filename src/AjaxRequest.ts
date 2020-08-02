@@ -6,9 +6,9 @@ import qs from 'qs';
 import lodash from 'lodash';
 
 import AjaxClient from './AjaxClient';
-import { StaticUrl } from './AjaxRepository';
+import { StaticUrl, MemberIdParams, MemberParams } from './AjaxRepository';
 import Model from './Model';
-import { Awaitable, CollectionOptions, Filters, HeadersRecord, Id, ParamsRecord, Context } from './types';
+import { Awaitable, CollectionOptions, HeadersRecord, ParamsRecord, Context } from './types';
 
 export interface AjaxRequestConfig extends Omit<RequestInit, 'headers'> {
   headers: HeadersRecord;
@@ -27,19 +27,17 @@ export interface AjaxRequestConfig extends Omit<RequestInit, 'headers'> {
     Awaitable<ResponseError | Response | null>;
 }
 
-export type RequestConfigModifier = (requestConfig: AjaxRequestConfig, value: string) => void;
-export type FilterRequestConfigModifier = (requestConfig: AjaxRequestConfig, filters: Filters) => void;
-
-export type IdRequestConfigModifier<U = void> = (requestConfig: AjaxRequestConfig, id: Id) => U;
-export type ItemRequestConfigModifier<T extends Model<any>, U = void> =
-  (requestConfig: AjaxRequestConfig, item: Partial<T>) => U;
-export type ListRequestConfigModifier<T extends Model<any>, U = void> =
+export type CollectionRequestConfigModifier<T extends Model<any>, U = void> =
   (requestConfig: AjaxRequestConfig, options: CollectionOptions<T>, pageIndex?: number) => U;
+export type MemberIdRequestConfigModifier<T extends Model<any>, U = void> =
+  (requestConfig: AjaxRequestConfig, params: MemberIdParams<T>) => U;
+export type MemberRequestConfigModifier<T extends Model<any>, U = void> =
+  (requestConfig: AjaxRequestConfig, params: MemberParams<T>) => U;
 
-export type IdMapper<U> = (id: Id) => U;
-export type ItemMapper<T extends Model<any>, U> = (item: Partial<T>) => U;
-export type ListOptionsMapper<T extends Model<any>, U> =
+export type CollectionOptionsMapper<T extends Model<any>, U> =
   (options: CollectionOptions<T>, pageIndex?: number) => U;
+export type MemberIdParamsMapper<T extends Model<any>, U> = (params: MemberIdParams<T>) => U;
+export type MemberParamsMapper<T extends Model<any>, U> = (params: MemberParams<T>) => U;
 
 export interface RequestMapperResult {
   method?: string;
@@ -53,11 +51,12 @@ export interface RequestMapperResult {
   context?: Context<any>;
 }
 
-export type RequestMapper<T> = (value: T) => RequestMapperResult;
+export type OptionRequestConfigModifier<T> = (requestConfig: AjaxRequestConfig, value: T) => void;
+export type OptionRequestMapper<T> = (value: T) => RequestMapperResult;
 
-export type IdRequestMapper = IdMapper<RequestMapperResult>;
-export type ItemRequestMapper<T extends Model<any>> = ItemMapper<T, RequestMapperResult>;
-export type ListRequestMapper<T extends Model<any>> = ListOptionsMapper<T, RequestMapperResult>;
+export type CollectionRequestMapper<T extends Model<any>> = CollectionOptionsMapper<T, RequestMapperResult>;
+export type MemberRequestMapper<T extends Model<any>> = MemberParamsMapper<T, RequestMapperResult>;
+export type MemberIdRequestMapper<T extends Model<any>> = MemberIdParamsMapper<T, RequestMapperResult>;
 
 interface ResponseErrorOptions {
   request: Request;

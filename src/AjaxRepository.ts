@@ -5,15 +5,14 @@ import { action } from 'mobx';
 import AjaxClient from './AjaxClient';
 import AjaxRequest, {
   AjaxRequestConfig,
-  FilterRequestConfigModifier,
-  IdRequestConfigModifier,
-  IdRequestMapper,
-  ItemRequestConfigModifier,
-  ItemRequestMapper,
-  ListRequestConfigModifier,
-  ListRequestMapper,
-  RequestConfigModifier,
-  RequestMapper,
+  CollectionRequestConfigModifier,
+  CollectionRequestMapper,
+  MemberIdRequestConfigModifier,
+  MemberIdRequestMapper,
+  MemberRequestConfigModifier,
+  MemberRequestMapper,
+  OptionRequestConfigModifier,
+  OptionRequestMapper,
   mergeRequestConfig,
 } from './AjaxRequest';
 
@@ -21,13 +20,13 @@ import Model from './Model';
 import Repository, { RepositoryContext, RepositoryContextBuilder } from './Repository';
 import {
   CollectionOptions,
+  CollectionResponseBodyMapper,
   Context,
+  DeleteAllResponseBodyMapper,
   Filters,
   Id,
-  ItemResponseBodyMapper,
   List,
-  ListDeleteAllResponseBodyMapper,
-  ListResponseBodyMapper,
+  MemberResponseBodyMapper,
 } from './types';
 
 export interface AjaxRepositoryContext<T extends Model<any>> extends RepositoryContext<T> {
@@ -37,74 +36,88 @@ export interface AjaxRepositoryContext<T extends Model<any>> extends RepositoryC
 export type AjaxRepositoryContextBuilder<T extends Model<any>> =
   AjaxRepositoryContext<T> | ((repository: AjaxRepository<T>) => any);
 
-export type StaticUrl = string;
-export type DynamicUrl<T extends Model<any>> = (params: UrlParams<T>) => StaticUrl | undefined;
-export type Url<T extends Model<any>> = StaticUrl | DynamicUrl<T>;
+export interface CollectionParams<T extends Model<any>> extends CollectionOptions<T> {
+  context: AjaxRepositoryContext<T>;
+  pageIndex?: number;
+}
 
-export interface UrlParams<T extends Model<any>> {
+export interface MemberParams<T extends Model<any>> {
+  context: AjaxRepositoryContext<T>;
+  member: T;
+  memberId: Id;
+  values?: Partial<T>;
+}
+
+export interface MemberIdParams<T extends Model<any>> {
   context: AjaxRepositoryContext<T>;
   member?: T;
-  memberId?: Id;
+  memberId: Id;
 }
+
+export type StaticUrl = string;
+export type DynamicCollectionUrl<T extends Model<any>> = (options: CollectionParams<T>) => StaticUrl | undefined;
+export type CollectionUrl<T extends Model<any>> = StaticUrl | DynamicCollectionUrl<T>;
+export type MemberUrl<T extends Model<any>> = (params: MemberParams<T>) => StaticUrl | undefined;
+export type MemberIdUrl<T extends Model<any>> = (params: MemberIdParams<T>) => StaticUrl | undefined;
 
 export interface AjaxRepositoryConfig<T extends Model<any>> {
   client?: AjaxClient;
   baseUrl?: string;
 
-  collectionUrl?: Url<T>;
-  collectionRequestMapper?: ListRequestMapper<T>;
-  collectionRequestConfigModifier?: ListRequestConfigModifier<T>;
-  collectionResponseBodyMapper?: ListResponseBodyMapper<T>;
+  collectionUrl?: CollectionUrl<T>;
+  collectionRequestMapper?: CollectionRequestMapper<T>;
+  collectionRequestConfigModifier?: CollectionRequestConfigModifier<T>;
+  collectionResponseBodyMapper?: CollectionResponseBodyMapper<T>;
 
-  memberBaseUrl?: Url<T>;
-  memberUrl?: DynamicUrl<T>;
-  memberRequestMapper?: ItemRequestMapper<T>;
-  memberRequestConfigModifier?: ItemRequestConfigModifier<T>;
-  memberResponseBodyMapper?: ItemResponseBodyMapper<T>;
+  memberBaseUrl?: CollectionUrl<T>;
+  memberUrl?: MemberIdUrl<T>;
+  memberRequestMapper?: MemberRequestMapper<T>;
+  memberRequestConfigModifier?: MemberRequestConfigModifier<T>;
+  memberResponseBodyMapper?: MemberResponseBodyMapper<T>;
 
   listMethod?: string;
-  listUrl?: StaticUrl;
-  listRequestMapper?: ListRequestMapper<T>;
-  listRequestConfigModifier?: ListRequestConfigModifier<T>;
-  listResponseBodyMapper?: ListResponseBodyMapper<T>;
+  listUrl?: CollectionUrl<T>;
+  listRequestMapper?: CollectionRequestMapper<T>;
+  listRequestConfigModifier?: CollectionRequestConfigModifier<T>;
+  listResponseBodyMapper?: CollectionResponseBodyMapper<T>;
 
   getByIdMethod?: string;
-  getByIdUrl?: DynamicUrl<T>;
-  getByIdRequestMapper?: IdRequestMapper;
-  getByIdRequestConfigModifier?: IdRequestConfigModifier;
-  getByIdResponseBodyMapper?: ItemResponseBodyMapper<T>;
+  getByIdUrl?: MemberIdUrl<T>;
+  getByIdRequestMapper?: MemberIdRequestMapper<T>;
+  getByIdRequestConfigModifier?: MemberIdRequestConfigModifier<T>;
+  getByIdResponseBodyMapper?: MemberResponseBodyMapper<T>;
 
   addMethod?: string;
-  addUrl?: Url<T>;
-  addRequestMapper?: ItemRequestMapper<T>;
-  addRequestConfigModifier?: ItemRequestConfigModifier<T>;
-  addResponseBodyMapper?: ItemResponseBodyMapper<T>;
+  addUrl?: CollectionUrl<T>;
+  addRequestMapper?: MemberRequestMapper<T>;
+  addRequestConfigModifier?: MemberRequestConfigModifier<T>;
+  addResponseBodyMapper?: MemberResponseBodyMapper<T>;
 
   updateMethod?: string;
-  updateUrl?: DynamicUrl<T>;
-  updateRequestMapper?: ItemRequestMapper<T>;
-  updateRequestConfigModifier?: ItemRequestConfigModifier<any>;
-  updateResponseBodyMapper?: ItemResponseBodyMapper<T>;
+  updateUrl?: MemberUrl<T>;
+  updateRequestMapper?: MemberRequestMapper<T>;
+  updateRequestConfigModifier?: MemberRequestConfigModifier<any>;
+  updateResponseBodyMapper?: MemberResponseBodyMapper<T>;
 
   deleteMethod?: string;
-  deleteUrl?: DynamicUrl<T>;
-  deleteRequestMapper?: ItemRequestMapper<T>;
-  deleteRequestConfigModifier?: ItemRequestConfigModifier<T>;
-  deleteResponseBodyMapper?: ItemResponseBodyMapper<any>;
+  deleteUrl?: MemberUrl<T>;
+  deleteRequestMapper?: MemberRequestMapper<T>;
+  deleteRequestConfigModifier?: MemberRequestConfigModifier<T>;
+  deleteResponseBodyMapper?: MemberResponseBodyMapper<any>;
 
   deleteAllMethod?: string;
-  deleteAllUrl?: Url<T>;
-  deleteAllRequestMapper?: ListRequestMapper<T>;
-  deleteAllRequestConfigModifier?: ListRequestConfigModifier<T>;
-  deleteAllResponseBodyMapper?: ListDeleteAllResponseBodyMapper<any>;
+  deleteAllUrl?: CollectionUrl<T>;
+  deleteAllRequestMapper?: CollectionRequestMapper<T>;
+  deleteAllRequestConfigModifier?: CollectionRequestConfigModifier<T>;
+  deleteAllResponseBodyMapper?: DeleteAllResponseBodyMapper<any>;
 
-  sortRequestMapper?: RequestMapper<string>;
-  searchRequestMapper?: RequestMapper<string>;
-  filterRequestMapper?: RequestMapper<Filters>;
+  sortRequestMapper?: OptionRequestMapper<string>;
+  searchRequestMapper?: OptionRequestMapper<string>;
+  filterRequestMapper?: OptionRequestMapper<Filters>;
 
-  sortRequestConfigModifier?: RequestConfigModifier;
-  searchRequestConfigModifier?: RequestConfigModifier;
-  filterRequestConfigModifier?: FilterRequestConfigModifier;
+  sortRequestConfigModifier?: OptionRequestConfigModifier<string>;
+  searchRequestConfigModifier?: OptionRequestConfigModifier<string>;
+  filterRequestConfigModifier?: OptionRequestConfigModifier<Filters>;
 
   context?: AjaxRepositoryContextBuilder<T>;
 }
@@ -113,66 +126,71 @@ export default class AjaxRepository<T extends Model<any>> extends Repository<T> 
   client?: AjaxClient;
   baseUrl?: string;
 
-  collectionUrl: Url<T> = '';
-  collectionRequestMapper?: ListRequestMapper<T>;
-  collectionRequestConfigModifier?: ListRequestConfigModifier<T>;
-  collectionResponseBodyMapper: ListResponseBodyMapper<T> = (data: any) => data;
+  collectionUrl: CollectionUrl<T> = '';
+  collectionRequestMapper?: CollectionRequestMapper<T>;
+  collectionRequestConfigModifier?: CollectionRequestConfigModifier<T>;
+  collectionResponseBodyMapper: CollectionResponseBodyMapper<T> = (data: any) => data;
 
-  memberBaseUrl: Url<T> = function memberBaseUrl(this: AjaxRepository<T>, params) {
-    return typeof this.collectionUrl === 'function' ? this.collectionUrl(params) : this.collectionUrl;
-  };
-  memberUrl: DynamicUrl<T> = function memberUrl(this: AjaxRepository<T>, params) {
-    const {memberId} = params;
-    const memberBaseUrl = typeof this.memberBaseUrl === 'string' ? this.memberBaseUrl : this.memberBaseUrl(params);
-    return `${memberBaseUrl}/${memberId}`;
-  };
-  memberRequestMapper?: ItemRequestMapper<T>;
-  memberRequestConfigModifier?: ItemRequestConfigModifier<T>;
-  memberResponseBodyMapper: ItemResponseBodyMapper<T> = (data: any) => data;
+  memberBaseUrl: CollectionUrl<T> =
+    function memberBaseUrl(this: AjaxRepository<T>, options: CollectionOptions<T>, pageIndex?: number) {
+      const params = this.getCollectionParams(options, pageIndex);
+      return this.evaluateCollectionUrl(this.collectionUrl, params);
+    };
+  memberUrl: MemberIdUrl<T> =
+    function memberUrl(this: AjaxRepository<T>, params) {
+      const {memberId} = params;
+      const memberBaseUrl = typeof this.memberBaseUrl === 'string'
+        ? this.memberBaseUrl
+        : this.memberBaseUrl(params);
+      return `${memberBaseUrl}/${memberId}`;
+    };
+  memberRequestMapper?: MemberRequestMapper<T>;
+  memberRequestConfigModifier?: MemberRequestConfigModifier<T>;
+  memberResponseBodyMapper: MemberResponseBodyMapper<T> = (data: any) => data;
 
   listMethod: string = 'GET';
-  listUrl?: Url<T>;
-  listRequestMapper?: ListRequestMapper<T>;
-  listRequestConfigModifier?: ListRequestConfigModifier<T>;
-  listResponseBodyMapper?: ListResponseBodyMapper<T>;
+  listUrl?: CollectionUrl<T>;
+  listRequestMapper?: CollectionRequestMapper<T>;
+  listRequestConfigModifier?: CollectionRequestConfigModifier<T>;
+  listResponseBodyMapper?: CollectionResponseBodyMapper<T>;
 
   getByIdMethod: string = 'GET';
-  getByIdUrl?: DynamicUrl<T>;
-  getByIdRequestMapper?: IdRequestMapper;
-  getByIdRequestConfigModifier?: IdRequestConfigModifier;
-  getByIdResponseBodyMapper?: ItemResponseBodyMapper<T>;
+  getByIdUrl?: MemberIdUrl<T>;
+  getByIdRequestMapper?: MemberIdRequestMapper<T>;
+  getByIdRequestConfigModifier?: MemberIdRequestConfigModifier<T>;
+  getByIdResponseBodyMapper?: MemberResponseBodyMapper<T>;
 
   addMethod: string = 'POST';
-  addUrl?: Url<T>;
-  addRequestMapper?: ItemRequestMapper<T>;
-  addRequestConfigModifier?: ItemRequestConfigModifier<T>;
-  addResponseBodyMapper?: ItemResponseBodyMapper<T>;
+  addUrl?: MemberUrl<T>;
+  addRequestMapper?: MemberRequestMapper<T>;
+  addRequestConfigModifier?: MemberRequestConfigModifier<T>;
+  addResponseBodyMapper?: MemberResponseBodyMapper<T>;
 
   updateMethod: string = 'PATCH';
-  updateUrl?: DynamicUrl<T>;
-  updateRequestMapper?: ItemRequestMapper<T>;
-  updateRequestConfigModifier?: ItemRequestConfigModifier<T>;
-  updateResponseBodyMapper?: ItemResponseBodyMapper<T>;
+  updateUrl?: MemberUrl<T>;
+  updateRequestMapper?: MemberRequestMapper<T>;
+  updateRequestConfigModifier?: MemberRequestConfigModifier<T>;
+  updateResponseBodyMapper?: MemberResponseBodyMapper<T>;
 
   deleteMethod: string = 'DELETE';
-  deleteUrl?: DynamicUrl<T>;
-  deleteRequestMapper?: ItemRequestMapper<T>;
-  deleteRequestConfigModifier?: ItemRequestConfigModifier<T>;
-  deleteResponseBodyMapper?: ItemResponseBodyMapper<T>;
+  deleteUrl?: MemberUrl<T>;
+  deleteRequestMapper?: MemberRequestMapper<T>;
+  deleteRequestConfigModifier?: MemberRequestConfigModifier<T>;
+  deleteResponseBodyMapper?: MemberResponseBodyMapper<T>;
 
   deleteAllMethod: string = 'DELETE';
-  deleteAllUrl?: Url<T>;
-  deleteAllRequestMapper?: ListRequestMapper<T>;
-  deleteAllRequestConfigModifier?: ListRequestConfigModifier<T>;
-  deleteAllResponseBodyMapper?: ListResponseBodyMapper<T>;
+  deleteAllUrl?: CollectionUrl<T>;
+  deleteAllRequestMapper?: CollectionRequestMapper<T>;
+  deleteAllRequestConfigModifier?: CollectionRequestConfigModifier<T>;
+  deleteAllResponseBodyMapper?: DeleteAllResponseBodyMapper<T>;
 
-  sortRequestMapper?: RequestMapper<string>;
-  searchRequestMapper?: RequestMapper<string>;
-  filterRequestMapper?: RequestMapper<Filters>;
+  sortRequestMapper?: OptionRequestMapper<string>;
+  searchRequestMapper?: OptionRequestMapper<string>;
+  filterRequestMapper?: OptionRequestMapper<Filters>;
 
-  sortRequestConfigModifier?: RequestConfigModifier;
-  searchRequestConfigModifier?: RequestConfigModifier;
-  filterRequestConfigModifier?: FilterRequestConfigModifier;
+  sortRequestConfigModifier?: OptionRequestConfigModifier<string>;
+  searchRequestConfigModifier?: OptionRequestConfigModifier<string>;
+  filterRequestConfigModifier?: OptionRequestConfigModifier<Filters>;
 
   context?: RepositoryContextBuilder<T>;
 
@@ -185,7 +203,9 @@ export default class AjaxRepository<T extends Model<any>> extends Repository<T> 
   }
 
   @action list(options: CollectionOptions<T> = {}, pageIndex?: number): Promise<List<T>> {
-    const request = this.createRequest(this.listUrl || this.collectionUrl, this.listMethod, options.context);
+    const params = this.getCollectionParams(options, pageIndex);
+    const url = this.evaluateCollectionUrl(this.listUrl || this.collectionUrl, params);
+    const request = this.createRequest(url, this.listMethod, params.context);
     this.applyCollectionOptionsToRequest(request, options);
 
     const requestMapper = this.listRequestMapper || this.collectionRequestMapper;
@@ -200,7 +220,7 @@ export default class AjaxRepository<T extends Model<any>> extends Repository<T> 
       .then(this.cacheList);
   }
 
-  @action async getById(id: string, reload: boolean = false, context?: Context<T>): Promise<T | undefined> {
+  @action async getById(id: string, reload: boolean = false, context: Context<T> = {}): Promise<T | undefined> {
     if (!id) throw new Error('AjaxRepository method `getById` called without id argument');
 
     const cachedItem = this.modelObjectCache[id];
@@ -213,9 +233,11 @@ export default class AjaxRepository<T extends Model<any>> extends Repository<T> 
       }
     }
 
-    const request = this.createRequest(this.getByIdUrl || this.memberUrl, this.getByIdMethod, context, id);
-    if (this.getByIdRequestMapper) mergeRequestConfig(request.config, this.getByIdRequestMapper(id));
-    this.getByIdRequestConfigModifier?.(request.config, id);
+    const params = this.getMemberIdParams(id, context);
+    const url = this.evaluateMemberIdUrl(this.getByIdUrl || this.memberUrl, params);
+    const request = this.createRequest(url, this.getByIdMethod, params.context);
+    if (this.getByIdRequestMapper) mergeRequestConfig(request.config, this.getByIdRequestMapper(params));
+    this.getByIdRequestConfigModifier?.(request.config, params);
 
     const responseBodyMapper = this.getByIdResponseBodyMapper || this.memberResponseBodyMapper;
     const promise = request.fetchJson()
@@ -238,75 +260,85 @@ export default class AjaxRepository<T extends Model<any>> extends Repository<T> 
     return item;
   }
 
-  @action async add(item: T, context?: Context<T>): Promise<T | undefined> {
-    if (!item) throw new Error('AjaxRepository method `add` called without item argument');
+  @action async add(member: T, context?: Context<T>): Promise<T | undefined> {
+    if (!member) throw new Error('AjaxRepository method `add` called without item argument');
 
-    const request = this.createRequest(this.addUrl || this.collectionUrl, this.addMethod, context, item);
+    const params = this.getMemberParams(member, context);
+    const url = this.evaluateMemberUrl(this.addUrl || this.memberUrl, params);
+    const request = this.createRequest(url, this.addMethod, params.context);
 
     const requestMapper = this.addRequestMapper || this.memberRequestMapper;
-    if (requestMapper) mergeRequestConfig(request.config, requestMapper(item));
+    if (requestMapper) mergeRequestConfig(request.config, requestMapper(params));
 
     const requestConfigModifier = this.addRequestConfigModifier || this.memberRequestConfigModifier;
-    if (requestConfigModifier) requestConfigModifier(request.config, item);
+    if (requestConfigModifier) requestConfigModifier(request.config, params);
 
     const responseBodyMapper = this.addResponseBodyMapper || this.memberResponseBodyMapper;
-    item._orm.savingPromise = request.fetchJson()
+    member._orm.savingPromise = request.fetchJson()
       .then((data: any) => responseBodyMapper(data, request.config.context))
       .then(this.cacheMember);
-    item._orm.isSaving = true;
-    const result = await item._orm.savingPromise;
-    if (result?.[this.idKey] && !item[this.idKey]) item[this.idKey] = result[this.idKey];
-    item._orm.isSaving = false;
+    member._orm.isSaving = true;
+    const result = await member._orm.savingPromise;
+    if (result?.[this.idKey] && !member[this.idKey]) {
+      member[this.idKey] = result[this.idKey];
+    }
+    member._orm.isSaving = false;
     return result;
   }
 
-  @action async update(item: T, values?: Partial<T>, context?: Context<T>): Promise<T | undefined> {
-    if (!item) throw new Error('AjaxRepository method `delete` called without item argument');
+  @action async update(member: T, values?: Partial<T>, context?: Context<T>): Promise<T | undefined> {
+    if (!member) throw new Error('AjaxRepository method `delete` called without item argument');
 
-    const id = item[this.idKey] as unknown as string;
+    const id = member[this.idKey] as unknown as string;
     if (!id) throw new Error(`AjaxRepository method \`update\` requires \`${this.idKey}\` to be set already`);
 
-    const request = this.createRequest(this.updateUrl || this.memberUrl, this.updateMethod, context, item);
+    const params = this.getMemberParams(member, context, values || member);
+    const url = this.evaluateMemberUrl(this.updateUrl || this.memberUrl, params);
+    const request = this.createRequest(url, this.updateMethod, params.context);
 
     const requestMapper = this.updateRequestMapper || this.memberRequestMapper;
-    if (requestMapper) mergeRequestConfig(request.config, requestMapper(values || item));
+    if (requestMapper) mergeRequestConfig(request.config, requestMapper(params));
 
     const requestConfigModifier = this.updateRequestConfigModifier || this.memberRequestConfigModifier;
-    if (requestConfigModifier) requestConfigModifier(request.config, values || item);
+    if (requestConfigModifier) requestConfigModifier(request.config, params);
 
     const responseBodyMapper = this.updateResponseBodyMapper || this.memberResponseBodyMapper;
-    item._orm.savingPromise = request.fetchJson()
+    member._orm.savingPromise = request.fetchJson()
       .then((data: any) => responseBodyMapper(data, request.config.context))
       .then(this.cacheMember);
-    item._orm.isSaving = true;
-    const result = await item._orm.savingPromise;
-    if (values) Object.assign(item, values);
-    item._orm.isSaving = false;
+    member._orm.isSaving = true;
+    const result = await member._orm.savingPromise;
+    if (values) Object.assign(member, values);
+    member._orm.isSaving = false;
     return result;
   }
 
-  @action delete(item: T, context?: Context<T>): Promise<any> {
-    if (!item) throw new Error('AjaxRepository method `delete` called without item argument');
+  @action delete(member: T, context?: Context<T>): Promise<any> {
+    if (!member) throw new Error('AjaxRepository method `delete` called without item argument');
 
-    const request = this.createRequest(this.deleteUrl || this.memberUrl, this.deleteMethod, context, item);
+    const params = this.getMemberParams(member, context);
+    const url = this.evaluateMemberUrl(this.deleteUrl || this.memberUrl, params);
+    const request = this.createRequest(url, this.deleteMethod, params.context);
 
     const requestMapper = this.deleteRequestMapper || this.memberRequestMapper;
-    if (requestMapper) mergeRequestConfig(request.config, requestMapper(item));
+    if (requestMapper) mergeRequestConfig(request.config, requestMapper(params));
 
     const requestConfigModifier = this.deleteRequestConfigModifier || this.memberRequestConfigModifier;
-    if (requestConfigModifier) requestConfigModifier(request.config, item);
+    if (requestConfigModifier) requestConfigModifier(request.config, params);
 
     const responseBodyMapper = this.deleteResponseBodyMapper || this.memberResponseBodyMapper;
     return request.fetchJson()
       .then((data: any) => responseBodyMapper(data, request.config.context))
       .then((result: any) => {
-        this.uncacheItem(item);
+        this.uncacheItem(member);
         return result;
       });
   }
 
   @action deleteAll(options: CollectionOptions<T> = {}): Promise<any> {
-    const request = this.createRequest(this.deleteAllUrl || this.collectionUrl, this.deleteAllMethod, options.context);
+    const params = this.getCollectionParams(options);
+    const url = this.evaluateCollectionUrl(this.deleteAllUrl || this.collectionUrl, params);
+    const request = this.createRequest(url, this.deleteAllMethod, params.context);
     this.applyCollectionOptionsToRequest(request, options);
 
     const requestMapper = this.deleteAllRequestMapper || this.collectionRequestMapper;
@@ -414,20 +446,49 @@ export default class AjaxRepository<T extends Model<any>> extends Repository<T> 
     }
   }
 
-  protected createRequest(url?: Url<T>, method?: string, context?: Context<T>, value?: Id | T) {
-    const mergedContext = {
-      repository: this,
+  protected mergeContext(context?: Context<T>): AjaxRepositoryContext<T> {
+    return {
       ...(typeof this.context === 'function' ? this.context(this) : this.context),
       ...context,
+      repository: this,
     };
-    if (url && typeof url !== 'string') {
-      const memberParams = typeof value === 'undefined' ? undefined : (
-        typeof value === 'string'
-          ? {memberId: value, member: this.modelObjectCache[value]}
-          : {memberId: value.id, member: value}
-      );
-      url = url.call(this, {context: mergedContext, ...memberParams});
-    }
+  }
+
+  protected getCollectionParams(options: CollectionOptions<T>, pageIndex?: number): CollectionParams<T> {
+    const mergedContext = this.mergeContext(options.context);
+    return {...options, pageIndex, context: mergedContext};
+  }
+
+  protected getMemberParams(member: T, context?: Context<T>, values?: Partial<T>): MemberParams<T> {
+    const mergedContext = this.mergeContext(context);
+    const memberId = member[this.idKey] as unknown as Id;
+    return {member, memberId, values, context: mergedContext};
+  }
+
+  protected getMemberIdParams(memberId: Id, context?: Context<T>): MemberIdParams<T> {
+    const mergedContext = this.mergeContext(context);
+    const member = this.modelObjectCache[memberId];
+    return {context: mergedContext, member, memberId};
+  }
+
+  // eslint-disable-next-line class-methods-use-this
+  protected evaluateCollectionUrl(url: CollectionUrl<T>, params: CollectionParams<T>) {
+    return typeof url === 'function' ? url(params) : url;
+  }
+
+  // eslint-disable-next-line class-methods-use-this
+  protected evaluateMemberUrl(url: MemberUrl<T>, params: MemberParams<T>) {
+    return typeof url === 'function' ? url(params) : url;
+  }
+
+  // eslint-disable-next-line class-methods-use-this
+  protected evaluateMemberIdUrl(url: MemberIdUrl<T>, params: MemberIdParams<T>) {
+    return typeof url === 'function' ? url(params) : url;
+  }
+
+  protected createRequest(url?: StaticUrl, method?: string, context?: AjaxRepositoryContext<T>) {
+    const mergedContext = this.mergeContext(context);
+
     const options = {context} as AjaxRequestConfig;
     if (method) {
       options.method = method;
