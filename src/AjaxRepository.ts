@@ -55,7 +55,7 @@ export interface MemberIdParams<T extends Model<any>> {
 }
 
 export type StaticUrl = string;
-export type DynamicCollectionUrl<T extends Model<any>> = (options: CollectionParams<T>) => StaticUrl | undefined;
+export type DynamicCollectionUrl<T extends Model<any>> = (params: CollectionParams<T>) => StaticUrl | undefined;
 export type CollectionUrl<T extends Model<any>> = StaticUrl | DynamicCollectionUrl<T>;
 export type MemberUrl<T extends Model<any>> = (params: MemberParams<T>) => StaticUrl | undefined;
 export type MemberIdUrl<T extends Model<any>> = (params: MemberIdParams<T>) => StaticUrl | undefined;
@@ -132,17 +132,15 @@ export default class AjaxRepository<T extends Model<any>> extends Repository<T> 
   collectionResponseBodyMapper: CollectionResponseBodyMapper<T> = (data: any) => data;
 
   memberBaseUrl: CollectionUrl<T> =
-    function memberBaseUrl(this: AjaxRepository<T>, options: CollectionOptions<T>, pageIndex?: number) {
-      const params = this.getCollectionParams(options, pageIndex);
-      return this.evaluateCollectionUrl(this.collectionUrl, params);
+    function memberBaseUrl(this: AjaxRepository<T>, params) {
+      return this.evaluateCollectionUrl(params.context.repository.collectionUrl, params);
     };
   memberUrl: MemberIdUrl<T> =
     function memberUrl(this: AjaxRepository<T>, params) {
-      const {memberId} = params;
-      const memberBaseUrl = typeof this.memberBaseUrl === 'string'
-        ? this.memberBaseUrl
-        : this.memberBaseUrl(params);
-      return `${memberBaseUrl}/${memberId}`;
+      const {memberId, context} = params;
+      const {memberBaseUrl} = context.repository;
+      const baseUrl = typeof memberBaseUrl === 'string' ? memberBaseUrl : memberBaseUrl(params);
+      return `${baseUrl}/${memberId}`;
     };
   memberRequestMapper?: MemberRequestMapper<T>;
   memberRequestConfigModifier?: MemberRequestConfigModifier<T>;
