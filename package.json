@@ -1,6 +1,6 @@
 {
   "name": "mobx-orm",
-  "version": "0.5.0-alpha.2",
+  "version": "0.5.0-alpha.3",
   "description": "MobX-based ORM for API resources and other asynchronous data sources",
   "author": "AppJudo Inc.",
   "license": "MIT",
