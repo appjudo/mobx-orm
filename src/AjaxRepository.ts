@@ -131,17 +131,16 @@ export default class AjaxRepository<T extends Model<any>> extends Repository<T> 
   collectionRequestConfigModifier?: CollectionRequestConfigModifier<T>;
   collectionResponseBodyMapper: CollectionResponseBodyMapper<T> = (data: any) => data;
 
-  memberBaseUrl: CollectionUrl<T> =
-    function memberBaseUrl(this: AjaxRepository<T>, params) {
-      return this.evaluateCollectionUrl(params.context.repository.collectionUrl, params);
-    };
-  memberUrl: MemberIdUrl<T> =
-    function memberUrl(this: AjaxRepository<T>, params) {
-      const {memberId, context} = params;
-      const {memberBaseUrl} = context.repository;
-      const baseUrl = typeof memberBaseUrl === 'string' ? memberBaseUrl : memberBaseUrl(params);
-      return `${baseUrl}/${memberId}`;
-    };
+  memberBaseUrl: CollectionUrl<T> = function memberBaseUrl(params) {
+    const {repository} = params.context;
+    return repository.evaluateCollectionUrl(repository.collectionUrl, params);
+  };
+  memberUrl: MemberIdUrl<T> = function memberUrl(params) {
+    const {memberId, context} = params;
+    const {memberBaseUrl} = context.repository;
+    const baseUrl = typeof memberBaseUrl === 'string' ? memberBaseUrl : memberBaseUrl(params);
+    return `${baseUrl}/${memberId}`;
+  };
   memberRequestMapper?: MemberRequestMapper<T>;
   memberRequestConfigModifier?: MemberRequestConfigModifier<T>;
   memberResponseBodyMapper: MemberResponseBodyMapper<T> = (data: any) => data;
