@@ -16,6 +16,21 @@ import {
   List,
 } from './ObservableList';
 
+interface GetByIdOptions<T extends Model<any>> {
+  context?: Context<T>;
+  reload?: boolean;
+}
+
+interface AddOptions<T extends Model<any>> {
+  context?: Context<T>;
+  append?: boolean;
+}
+
+interface DeleteOptions<T extends Model<any>> {
+  context?: Context<T>;
+  remove?: boolean;
+}
+
 abstract class BaseCollection<T extends Model<any>> {
   @observable protected _repository: Repository<T>;
   @observable protected _options: CollectionOptions<T>;
@@ -46,12 +61,14 @@ abstract class BaseCollection<T extends Model<any>> {
     return this.data.length;
   }
 
-  getById(id: string, reload: boolean = false) {
-    return this._repository.getById(id, reload, this._options.context);
+  getById(id: string, options: GetByIdOptions<T> = {}) {
+    const {context, reload} = options;
+    return this._repository.getById(id, !!reload, {...this._options.context, ...context});
   }
 
-  @action async add(item: T, append: boolean = false) {
-    const result = await this._repository.add(item, this._options.context);
+  @action async add(item: T, options: AddOptions<T> = {}) {
+    const {context, append} = options;
+    const result = await this._repository.add(item, {...this._options.context, ...context});
     if (append && this._data) {
       if (this._data.isLoading) {
         try {
@@ -66,12 +83,13 @@ abstract class BaseCollection<T extends Model<any>> {
     return result;
   }
 
-  @action update(item: T, values?: Partial<T>) {
-    return this._repository.update(item, values, this._options.context);
+  @action update(item: T, values?: Partial<T>, context?: Context<T>) {
+    return this._repository.update(item, values, {...this._options.context, ...context});
   }
 
-  @action async delete(item: T, remove: boolean = false) {
-    const result = await this._repository.delete(item, this._options.context);
+  @action async delete(item: T, options: DeleteOptions<T> = {}) {
+    const {context, remove} = options;
+    const result = await this._repository.delete(item, {...this._options.context, ...context});
     if (remove && this._data) {
       if (this._data.isLoading) {
         await this._data.loadingPromise;
@@ -84,8 +102,12 @@ abstract class BaseCollection<T extends Model<any>> {
     return result;
   }
 
-  @action async deleteAll(remove: boolean = false) {
-    const result = await this._repository.deleteAll(this._options);
+  @action async deleteAll(options: DeleteOptions<T> = {}) {
+    const {context, remove} = options;
+    const result = await this._repository.deleteAll({
+      ...this._options,
+      context: {...this._options.context, ...context},
+    });
     if (remove && this._data) {
       if (this._data.isLoading) {
         await this._data.loadingPromise;
@@ -103,6 +125,10 @@ abstract class BaseCollection<T extends Model<any>> {
     return this._clone({filters: {...this._options.filters, ...filters}});
   }
 
+  clearFilters() {
+    return this._clone({filters: {}});
+  }
+
   reverse() {
     return this._clone({reverse: !this._options.reverse});
   }
@@ -111,8 +137,12 @@ abstract class BaseCollection<T extends Model<any>> {
     return this._clone({search});
   }
 
-  context(context: Context<T> | undefined) {
-    return this._clone({context});
+  context(context: Context<T>) {
+    return this._clone({context: {...this.context, ...context}});
+  }
+
+  clearContext() {
+    return this._clone({context: undefined});
   }
 
   protected _clone(options: CollectionOptions<T>): this {
