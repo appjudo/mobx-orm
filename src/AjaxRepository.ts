@@ -415,30 +415,36 @@ export default class AjaxRepository<T extends Model<any>> extends Repository<T> 
 
   protected applyCollectionOptionsToRequest(request: AjaxRequest, options: CollectionOptions<T>) {
     if (options.filters && Object.keys(options.filters).length) {
+      if (!this.filterRequestMapper && !this.filterRequestConfigModifier) {
+        throw new Error('AjaxRepository instance has no filter capability');
+      }
+      if (this.filterRequestMapper) {
+        mergeRequestConfig(request.config, this.filterRequestMapper(options.filters));
+      }
       if (this.filterRequestConfigModifier) {
         this.filterRequestConfigModifier(request.config, options.filters);
-      } else if (this.filterRequestMapper) {
-        mergeRequestConfig(request.config, this.filterRequestMapper(options.filters));
-      } else {
-        throw new Error('AjaxRepository instance has no filter capability');
       }
     }
     if (options.sort) {
+      if (!this.sortRequestMapper && !this.sortRequestConfigModifier) {
+        throw new Error('AjaxRepository instance has no sort capability');
+      }
+      if (this.sortRequestMapper) {
+        mergeRequestConfig(request.config, this.sortRequestMapper(options.sort));
+      }
       if (this.sortRequestConfigModifier) {
         this.sortRequestConfigModifier(request.config, options.sort);
-      } else if (this.sortRequestMapper) {
-        mergeRequestConfig(request.config, this.sortRequestMapper(options.sort));
-      } else {
-        throw new Error('AjaxRepository instance has no sort capability');
       }
     }
     if (options.search) {
+      if (!this.searchRequestMapper && !this.searchRequestConfigModifier) {
+        throw new Error('AjaxRepository instance has no search capability');
+      }
+      if (this.searchRequestMapper) {
+        mergeRequestConfig(request.config, this.searchRequestMapper(options.search));
+      }
       if (this.searchRequestConfigModifier) {
         this.searchRequestConfigModifier(request.config, options.search);
-      } else if (this.searchRequestMapper) {
-        mergeRequestConfig(request.config, this.searchRequestMapper(options.search));
-      } else {
-        throw new Error('AjaxRepository instance has no search capability');
       }
     }
   }
