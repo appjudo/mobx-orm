@@ -58,11 +58,11 @@ export default abstract class Model<T extends Model<T>> {
     return itemId ? repository.update(item) : repository.add(item);
   }
 
-  @action reload(repository?: Repository<T>) {
-    if (!repository) repository = this._orm.repository;
+  @action reload(context: Context<T> = {}) {
+    const repository = context.repository || this._orm.repository;
     if (!repository) {
       throw new Error('Model `reload` method called without repository');
     }
-    return repository.reload(this as unknown as T);
+    return repository.reload(this as unknown as T, context);
   }
 }
