@@ -158,7 +158,7 @@ export default class AjaxRepository<T extends Model<any>> extends Repository<T> 
   getByIdResponseBodyMapper?: MemberResponseBodyMapper<T>;
 
   addMethod: string = 'POST';
-  addUrl?: MemberUrl<T>;
+  addUrl?: CollectionUrl<T>;
   addRequestMapper?: MemberRequestMapper<T>;
   addRequestConfigModifier?: MemberRequestConfigModifier<T>;
   addResponseBodyMapper?: MemberResponseBodyMapper<T>;
@@ -261,7 +261,7 @@ export default class AjaxRepository<T extends Model<any>> extends Repository<T> 
     if (!member) throw new Error('AjaxRepository method `add` called without item argument');
 
     const params = this.getMemberParams(member, context);
-    const url = this.evaluateMemberUrl(this.addUrl || this.memberUrl, params);
+    const url = this.evaluateCollectionUrl(this.addUrl || this.collectionUrl, params);
     const request = this.createRequest(url, this.addMethod, params.context);
 
     const requestMapper = this.addRequestMapper || this.memberRequestMapper;
