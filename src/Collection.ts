@@ -97,6 +97,7 @@ abstract class BaseCollection<T extends Model<any>> {
       const index = this._data.findIndex(matches(item));
       if (index !== -1) {
         this._data.splice(index, 1);
+        this._data.totalLength--;
       }
     }
     return result;
@@ -113,6 +114,7 @@ abstract class BaseCollection<T extends Model<any>> {
         await this._data.loadingPromise;
       }
       this._data.splice(0, this.length);
+      this._data.totalLength = 0;
     }
     return result;
   }
