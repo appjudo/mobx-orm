@@ -77,6 +77,22 @@ export abstract class BaseObservableList<T> extends ObservableArrayObjectHybrid 
     return this.loadingPromise;
   }
 
+  @action remove(item: T): boolean {
+    const result = super.remove(item);
+    if (result) this.totalLength--;
+    return result;
+  }
+
+  @action replace(items: T[]): T[] {
+    this.totalLength = items.length;
+    return super.replace(items);
+  }
+
+  @action splice(index: number, count: number = 0, ...items: T[]): T[] {
+    this.totalLength = this.totalLength - (count || 0) + items.length;
+    return super.splice(index, count, ...items);
+  }
+
   @action reset() {
     this.replace([]);
     this.totalLength = -1;
@@ -84,7 +100,7 @@ export abstract class BaseObservableList<T> extends ObservableArrayObjectHybrid 
     this.loadedDate = this.fullyLoadedDate = undefined;
   }
 
-  abstract reload(options: Partial<ReloadOptions>): Promise<List<T> | List<T | undefined>>;
+  abstract reload(options?: Partial<ReloadOptions>): Promise<List<T> | List<T | undefined>>;
   abstract preload(): Promise<List<T> | List<T | undefined>>;
 }
 

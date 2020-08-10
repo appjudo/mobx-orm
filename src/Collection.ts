@@ -24,6 +24,7 @@ interface GetByIdOptions<T extends Model<any>> {
 interface AddOptions<T extends Model<any>> {
   context?: Context<T>;
   append?: boolean;
+  reload?: boolean;
 }
 
 interface DeleteOptions<T extends Model<any>> {
@@ -67,18 +68,22 @@ abstract class BaseCollection<T extends Model<any>> {
   }
 
   @action async add(item: T, options: AddOptions<T> = {}) {
-    const {context, append} = options;
+    const {context, append, reload} = options;
     const result = await this._repository.add(item, {...this._options.context, ...context});
-    if (append && this._data) {
-      if (this._data.isLoading) {
-        try {
-          await this._data.loadingPromise;
-        } catch (error) {
-          console.warn('Promise rejected on ObservableList; cannot append item');
-          return result;
+    if (this._data) {
+      if (reload) {
+        this._data.reload({clear: true});
+      } else if (append) {
+        if (this._data.isLoading) {
+          try {
+            await this._data.loadingPromise;
+          } catch (error) {
+            console.warn('Promise rejected on ObservableList; cannot append item');
+            return result;
+          }
         }
+        this._data!.push(result || item);
       }
-      this._data!.push(result || item);
     }
     return result;
   }
@@ -97,7 +102,6 @@ abstract class BaseCollection<T extends Model<any>> {
       const index = this._data.findIndex(matches(item));
       if (index !== -1) {
         this._data.splice(index, 1);
-        this._data.totalLength--;
       }
     }
     return result;
@@ -114,7 +118,6 @@ abstract class BaseCollection<T extends Model<any>> {
         await this._data.loadingPromise;
       }
       this._data.splice(0, this.length);
-      this._data.totalLength = 0;
     }
     return result;
   }
