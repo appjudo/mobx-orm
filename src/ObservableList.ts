@@ -52,19 +52,19 @@ class ObservableArrayObjectHybrid extends ObservableArray {
 
 export abstract class BaseObservableList<T> extends ObservableArrayObjectHybrid implements List<T> {
   abstract loadingPromise: Promise<List<T>>;
-
-  provider: ListProvider<T>;
-
   @observable isLoading: boolean = true;
+  @observable isReloading: boolean = false;
   @observable loadedDate?: Date;
+
   @observable isFullyLoaded: boolean = false;
   @observable fullyLoadedDate?: Date;
-  @observable isReloading: boolean = false;
 
-  @observable error?: Error;
-  @observable metadata?: any;
   @observable totalLength: number = -1;
-  @observable versionNumber: number;
+  @observable metadata?: any;
+  @observable error?: Error;
+
+  protected provider: ListProvider<T>;
+  @observable protected versionNumber: number;
 
   constructor(provider: ListProvider<T>, versionNumber: number = 1) {
     super();
@@ -77,27 +77,28 @@ export abstract class BaseObservableList<T> extends ObservableArrayObjectHybrid 
     return this.loadingPromise;
   }
 
+  @action reset() {
+    this.replace([], true);
+    this.isFullyLoaded = false;
+    this.loadedDate = undefined;
+    this.fullyLoadedDate = undefined;
+    this.error = undefined;
+  }
+
   @action remove(item: T): boolean {
     const result = super.remove(item);
     if (result) this.totalLength--;
     return result;
   }
 
-  @action replace(items: T[]): T[] {
-    this.totalLength = items.length;
+  @action replace(items: T[], duringReset?: boolean): T[] {
+    if (!duringReset) this.totalLength = items.length;
     return super.replace(items);
   }
 
   @action splice(index: number, count: number = 0, ...items: T[]): T[] {
     this.totalLength = this.totalLength - (count || 0) + items.length;
     return super.splice(index, count, ...items);
-  }
-
-  @action reset() {
-    this.replace([]);
-    this.totalLength = -1;
-    this.isFullyLoaded = false;
-    this.loadedDate = this.fullyLoadedDate = undefined;
   }
 
   abstract reload(options?: Partial<ReloadOptions>): Promise<List<T> | List<T | undefined>>;
@@ -109,50 +110,15 @@ export default class ObservableList<T> extends BaseObservableList<T> {
 
   constructor(provider: ListProvider<T>, initialArray?: List<T>) {
     super(provider);
-    const promise = initialArray ? Promise.resolve(initialArray) : provider();
-    this.loadingPromise = promise.then(action((data: List<T>) => {
-      this.isLoading = false;
-      this.replace(data || []);
-      if ('metadata' in data) {
-        this.metadata = data.metadata;
-      }
-      this.loadedDate = new Date();
-      this.totalLength = this.length;
-      return data;
-    }));
-    this.loadingPromise.catch(action((error: Error) => {
-      this.reset();
-      this.isLoading = false;
-      this.error = error;
-    }));
+    this.loadingPromise = this.load(initialArray ? Promise.resolve(initialArray) : provider());
   }
 
   @action reload(options: Partial<ReloadOptions> = {}): Promise<List<T>> {
     const clear = options.clear ?? false;
     if (clear) this.reset();
-    if (this.isLoading) {
-      return this.loadingPromise;
-    }
+    if (this.isLoading) return this.loadingPromise;
 
-    this.error = undefined;
-    this.loadedDate = undefined;
-    this.loadingPromise = this.provider().then(action((data: List<T>) => {
-      this.isLoading = false;
-      this.isReloading = false;
-      this.replace(data || []);
-      attachMetadata(this, data);
-      this.isFullyLoaded = true;
-      this.loadedDate = this.fullyLoadedDate = new Date();
-      return data;
-    }));
-    this.loadingPromise.catch(action((error: Error) => {
-      this.replace([]);
-      this.isLoading = false;
-      this.isReloading = false;
-      this.error = error;
-    }));
-
-    this.isLoading = true;
+    this.load(this.provider());
     this.isReloading = true;
     return this.loadingPromise;
   }
@@ -162,28 +128,55 @@ export default class ObservableList<T> extends BaseObservableList<T> {
     if (!this.loadedDate) return this.reload();
     return Promise.resolve(this.slice());
   }
+
+  @action private load(listPromise: Promise<List<T>>) {
+    this.loadingPromise = listPromise.then(action((data: List<T>) => {
+      this.isLoading = false;
+      this.isReloading = false;
+      this.replace(data || []);
+      attachMetadata(this, data);
+      this.isFullyLoaded = true;
+      this.loadedDate = this.fullyLoadedDate = new Date();
+      this.totalLength = this.length;
+      return data;
+    }));
+    this.loadingPromise.catch(action((error: Error) => {
+      this.reset();
+      this.isLoading = false;
+      this.isReloading = false;
+      this.error = error;
+    }));
+    this.isLoading = true;
+    return this.loadingPromise;
+  }
+}
+
+interface PageLoadContext {
+  cancelled: boolean;
 }
 
 export class PaginatedObservableList<T> extends BaseObservableList<T> {
   loadingPromise: Promise<List<T>>;
   provider: PaginatedListProvider<T>;
 
-  pageSize: number;
+  readonly pageSize: number;
 
-  @observable pages: IObservableArray<List<T> | undefined>;
-  @observable pagePromises: IObservableArray<Promise<List<T>> | undefined>;
-  @observable loadedPageCount: number = 0;
-  @observable loadingPageCount: number = 0;
+  private pageLoadContext: PageLoadContext;
+  private loadingPageVersionNumbers: (number | undefined)[];
+  private pagePromises: (Promise<List<T>> | undefined)[];
+  private loadingPageCount: number = 0;
 
-  @observable nextVersion?: PaginatedObservableList<T>;
+  @observable private itemVersionNumbers: IObservableArray<number | undefined>;
   
   constructor(provider: PaginatedListProvider<T>, pageSize: number, versionNumber: number = 1) {
     super(provider, versionNumber);
     this.provider = provider;
     this.pageSize = pageSize;
 
-    this.pages = observable.array();
-    this.pagePromises = observable.array();
+    this.itemVersionNumbers = observable.array();
+    this.pageLoadContext = {cancelled: false};
+    this.pagePromises = [];
+    this.loadingPageVersionNumbers = [];
 
     this.loadingPromise = Promise.resolve([]);
     this.isLoading = false;
@@ -191,164 +184,157 @@ export class PaginatedObservableList<T> extends BaseObservableList<T> {
     this.isFullyLoaded = false;
   }
 
-  @computed get maxLoadedPageIndex() {
-    return this.pages.length - 1;
-  }
-
-  @computed get loadingPageIndexes() {
-    const result: number[] = [];
-    if (this.loadingPageCount) {
-      for (let index = 0; index < this.pagePromises.length; index++) {
-        if (index >= this.pages.length || !this.pages[index]) {
-          result.push(index);
-        }
-      }
-    }
-    return result;
-  }
-
   @action reset() {
     super.reset();
-    this.pages.replace([]);
-    this.pagePromises.replace([]);
-    this.loadedPageCount = 0;
-    this.loadingPageCount = 0;
+    this.itemVersionNumbers.replace([]);
+    this.cancelPendingPageLoads();
   }
 
   @action reload(options: Partial<PaginatedReloadOptions> = {}): Promise<List<T | undefined>> {
-    const clear = options.clear ?? false;
-    const preload = options.preload ?? false;
-    // Cache currently loading page indexes before (possibly) resetting this list.
-    const previouslyLoadingPageIndexes = this.loadingPageIndexes;
+    const {clear, preload} = options;
+
     if (clear) this.reset();
+    this.versionNumber++;
     this.isReloading = true;
-    this.error = undefined;
-    this.loadedDate = undefined;
-    this.fullyLoadedDate = undefined;
-    this.nextVersion = new PaginatedObservableList(this.provider, this.pageSize, this.versionNumber + 1);
-    // Reload previously loading page indexes into next version.
-    previouslyLoadingPageIndexes.forEach(index => this.getPageAtIndex(index));
+
     if (preload) this.getPageAtIndex(0);
     return this.loadingPromise;
   }
 
+  getItemAtIndex(itemIndex: number): T | undefined {
+    // Access versionNumber here merely to watch for version changes.
+    if (this.versionNumber < 0) return undefined;
+
+    if (this.length <= itemIndex
+      || this.itemVersionNumbers.length <= itemIndex
+      || !this.itemVersionNumbers[itemIndex]
+      || this.itemVersionNumbers[itemIndex]! < this.versionNumber
+    ) {
+      const pageIndex = this.getPageIndexFromItemIndex(itemIndex);
+      this.loadPageAtIndex(pageIndex);
+    }
+
+    return this[itemIndex];
+  }
+
   @action preload(): Promise<List<T | undefined>> {
-    const list = this.nextVersion || this;
-    if (list.totalLength >= 0) {
-      return Promise.resolve(list.slice());
-    }
-    if (list.isLoading) {
-      return list.loadingPromise;
-    }
-    return list.getNextPage();
+    if (this.totalLength >= 0) return Promise.resolve(this.slice());
+    if (this.isLoading) return this.loadingPromise;
+    return this.getNextPage();
   }
 
   @action getNextPage(): Promise<List<T>> {
     if (this.isFullyLoaded) {
       return Promise.resolve(attachMetadata([], this) as List<T>);
     }
-    return this.getPageAtIndex(this.maxLoadedPageIndex + 1);
+    return this.getPageAtIndex(this.getPageIndexFromItemIndex(this.length + 1));
   }
 
   @action getPageAtIndex(pageIndex: number): Promise<List<T>> {
+    // Check whether all items of page range are present and timely.
+    const startIndex = pageIndex * this.pageSize;
+    let endIndex = startIndex + this.pageSize;
+    if (this.totalLength !== -1) {
+      endIndex = Math.min(endIndex, this.totalLength);
+    }
+    if (this.length < endIndex || this.itemVersionNumbers.length < endIndex) {
+      return this.loadPageAtIndex(pageIndex);
+    }
+
+    const result = [];
+    for (let index = startIndex; index < endIndex; index++) {
+      if (!this[index]
+        || !this.itemVersionNumbers[index]
+        || this.itemVersionNumbers[index]! < this.versionNumber
+      ) {
+        return this.loadPageAtIndex(pageIndex);
+      }
+      result.push(this[index]);
+    }
+
+    // If all present and timely, return them (inside Promise.resolve).
+    return Promise.resolve(result);
+  }
+
+  getPageIndexFromItemIndex(itemIndex: number) {
+    return Math.floor(itemIndex / this.pageSize);
+  }
+
+  @action private loadPageAtIndex(pageIndex: number): Promise<List<T>> {
+    if (this.loadingPageVersionNumbers.length > pageIndex
+      && this.loadingPageVersionNumbers[pageIndex] === this.versionNumber) {
+      return this.pagePromises[pageIndex]!;
+    }
+
     this.error = undefined;
   
     // Cache these values here as local constants for reliable usage in nested closure scopes.
-    const {pageSize} = this;
-    const list = this.nextVersion || this;
-    let pagePromise = list.pagePromises.length > pageIndex ? list.pagePromises[pageIndex] : undefined;
-    if (pagePromise) {
-      return pagePromise;
-    }
-    const loadedVersionNumber = list.versionNumber;
-    pagePromise = list.provider(pageSize, pageIndex).then(action((data: List<T>) => {
-      if (this.nextVersion && this.nextVersion.versionNumber !== loadedVersionNumber) {
-        // List was reloaded/reset since page request was made; ignore this page response.
-        return data;
-      }
+    const {pageLoadContext, pageSize} = this;
+    const loadedVersionNumber = this.versionNumber;
+    const pagePromise = this.provider(pageSize, pageIndex).then(action((data: List<T>) => {
+      // If page load has been cancelled, drop out, but return data to page promise watchers.
+      if (pageLoadContext.cancelled) return data;
+
       const startIndex = pageSize * pageIndex;
-      while (list.length < startIndex) {
-        list.push(undefined);
+      if (this.length < startIndex) {
+        this.length = startIndex;
+      }
+      if (this.itemVersionNumbers.length < startIndex) {
+        this.itemVersionNumbers.length = startIndex;
       }
       for (let index = 0; index < data.length; index++) {
-        list[startIndex + index] = data[index];
+        this[startIndex + index] = data[index];
+        this.itemVersionNumbers[startIndex + index] = loadedVersionNumber;
       }
 
-      attachMetadata(list, data);
-      list.loadedPageCount++;
-      list.isFullyLoaded = list.totalLength >= 0
-        && list.loadedPageCount === Math.ceil(list.totalLength / pageSize);
+      attachMetadata(this, data);
 
-      if (!list.loadedDate) {
-        this.loadedDate = new Date();
+      const now = new Date();
+      if (!this.loadedDate) {
+        this.loadedDate = now;
       }
-      if (list.isFullyLoaded && !list.fullyLoadedDate) {
-        list.fullyLoadedDate = new Date();
+      this.isFullyLoaded = this.itemVersionNumbers.length >= this.totalLength
+        && this.itemVersionNumbers.every(versionNumber => versionNumber === this.versionNumber);
+      if (this.isFullyLoaded && !this.fullyLoadedDate) {
+        this.fullyLoadedDate = now;
       }
 
-      const pages = list.pages.slice();
-      pages[pageIndex] = data;
-      list.pages.replace(pages);
-      list.loadingPageCount--;
+      this.pagePromises[pageIndex] = undefined;
+      this.loadingPageCount--;
+      this.isLoading = !!this.loadingPageCount;
+      if (!this.isLoading) this.isReloading = false;
 
-      this.isLoading = !!(this.nextVersion || this).loadingPageCount;
-      if (!this.isLoading) {
-        if (this.nextVersion) {
-          // Copy nextVersion back to this.
-          this.replace(this.nextVersion);
-          Object.assign(this, this.nextVersion);
-          this.isLoading = false;
-        }
-        this.isReloading = false;
-      }
       return data;
     }));
     pagePromise.catch(action((error: Error) => {
-      const latestVersionNumber = this.nextVersion?.versionNumber || this.versionNumber;
+      const latestVersionNumber = this.versionNumber;
       if (loadedVersionNumber === latestVersionNumber) {
-        list.loadingPageCount--;
-        this.isLoading = !!list.loadingPageCount;
+        this.loadingPageCount--;
+        this.isLoading = !!this.loadingPageCount;
         if (!this.isLoading) this.isReloading = false;
       }
       this.error = error;
     }));
-    const pagePromises = list.pagePromises.slice();
-    pagePromises[pageIndex] = pagePromise;
-    list.pagePromises.replace(pagePromises);
-    list.loadingPageCount++;
+
+    this.pagePromises[pageIndex] = pagePromise;
+    this.loadingPageVersionNumbers[pageIndex] = loadedVersionNumber;
+    this.loadingPageCount++;
     this.isLoading = true;
 
-    this.loadingPromise = list.loadingPromise = Promise.all(lodash.compact(pagePromises)).then(() => {
-      return list;
+    this.loadingPromise = Promise.all([this.loadingPromise, pagePromise]).then(() => {
+      return this;
     });
     this.loadingPromise.catch(() => {});
   
     return pagePromise;
   }
 
-  isItemLoadedAtIndex(itemIndex: number) {
-    if (this.nextVersion) {
-      const pageIndex = this.getPageIndexFromItemIndex(itemIndex);
-      const isPageIndexLoaded = this.nextVersion.pages.length > pageIndex
-        && this.nextVersion.pages[pageIndex];
-      if (isPageIndexLoaded) {
-        this.getPageAtIndex(pageIndex);
-      }
-    }
-    return this.length > itemIndex && !lodash.isUndefined(this[itemIndex]);
-  }
-
-  getItemAtIndex(itemIndex: number): T | undefined {
-    if (this.isItemLoadedAtIndex(itemIndex)) {
-      return this[itemIndex];
-    }
-    const pageIndex = this.getPageIndexFromItemIndex(itemIndex);
-    this.getPageAtIndex(pageIndex);
-    return undefined;
-  }
-
-  getPageIndexFromItemIndex(itemIndex: number) {
-    return Math.floor(itemIndex / this.pageSize);
+  private cancelPendingPageLoads() {
+    this.pageLoadContext.cancelled = true;
+    this.pageLoadContext = {cancelled: false};
+    this.loadingPromise = Promise.resolve([]);
+    this.loadingPageVersionNumbers = [];
+    this.loadingPageCount = 0;
   }
 }
 
