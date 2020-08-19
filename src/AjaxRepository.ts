@@ -45,7 +45,7 @@ export interface MemberParams<T extends Model<any>> {
   context: AjaxRepositoryContext<T>;
   member: T;
   memberId: Id;
-  values?: Partial<T>;
+  values: Partial<T>;
 }
 
 export interface MemberIdParams<T extends Model<any>> {
@@ -463,6 +463,7 @@ export default class AjaxRepository<T extends Model<any>> extends Repository<T> 
   }
 
   protected getMemberParams(member: T, context?: Context<T>, values?: Partial<T>): MemberParams<T> {
+    if (!values) values = member;
     const mergedContext = this.mergeContext(context);
     const memberId = member[this.idKey] as unknown as Id;
     return {member, memberId, values, context: mergedContext};

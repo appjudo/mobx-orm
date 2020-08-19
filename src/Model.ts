@@ -44,7 +44,7 @@ export default abstract class Model<T extends Model<T>> {
     if (!itemId) {
       throw new Error(`Model \`update\` requires \`${repository.idKey}\` to be already set`);
     }
-    return repository.update(item, values);
+    return repository.update(item, values, context);
   }
 
   @action save(context: Context<T> = {}) {
@@ -55,7 +55,9 @@ export default abstract class Model<T extends Model<T>> {
     const {idKey} = repository;
     const item = this as unknown as T;
     const itemId = item[idKey];
-    return itemId ? repository.update(item) : repository.add(item);
+    return itemId
+      ? repository.update(item, undefined, context)
+      : repository.add(item, context);
   }
 
   @action reload(context: Context<T> = {}) {
