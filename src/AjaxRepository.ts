@@ -214,10 +214,11 @@ export default class AjaxRepository<T extends Model<any>> extends Repository<T> 
     const responseBodyMapper = this.listResponseBodyMapper || this.collectionResponseBodyMapper;
     return request.fetchJson()
       .then((data: any) => responseBodyMapper(data, request.config.context))
-      .then(this.cacheList);
+      .then(this.cacheList)
+      .catch(logAndRethrowError);
   }
 
-  @action async getById(id: string, reload: boolean = false, context: Context<T> = {}): Promise<T | undefined> {
+  @action getById(id: string, reload: boolean = false, context: Context<T> = {}): Promise<T | undefined> {
     if (!id) throw new Error('AjaxRepository method `getById` called without id argument');
 
     const cachedItem = this.modelObjectCache[id];
@@ -238,26 +239,39 @@ export default class AjaxRepository<T extends Model<any>> extends Repository<T> 
 
     const responseBodyMapper = this.getByIdResponseBodyMapper || this.memberResponseBodyMapper;
     const promise = request.fetchJson()
-      .catch((error: any) => {
+      .then((data: any) => responseBodyMapper(data, request.config.context))
+      .then(action(item => {
+        const result = this.cacheMember(item);
+        const loadedDate = new Date();
+        if (item) {
+          item._orm.isLoading = item._orm.isReloading = false;
+          item._orm.loadedDate = loadedDate;
+        }
+        if (cachedItem) {
+          cachedItem._orm.isLoading = cachedItem._orm.isReloading = false;
+          cachedItem._orm.loadedDate = loadedDate;
+        }
+        return result;
+      }))
+      .catch(error => {
+        if (cachedItem) {
+          cachedItem._orm.isLoading = cachedItem._orm.isReloading = false;
+        }
         if (error.response && error.response.status === 404) {
           return undefined;
         }
-        throw error;
-      })
-      .then((data: any) => responseBodyMapper(data, request.config.context))
-      .then(this.cacheMember);
+        return logAndRethrowError(error);
+      });
 
     if (cachedItem) {
       cachedItem._orm.loadingPromise = promise;
-      cachedItem._orm.isLoading = cachedItem._orm.isReloading = true;
+      cachedItem._orm.isLoading = true;
+      if (reload) cachedItem._orm.isReloading = true;
     }
-    const item = await promise;
-    if (item) item._orm.isLoading = item._orm.isReloading = false;
-    if (cachedItem) cachedItem._orm.isLoading = cachedItem._orm.isReloading = false;
-    return item;
+    return promise;
   }
 
-  @action async add(member: T, context?: Context<T>): Promise<T | undefined> {
+  @action add(member: T, context?: Context<T>): Promise<T | undefined> {
     if (!member) throw new Error('AjaxRepository method `add` called without item argument');
 
     const params = this.getMemberParams(member, context);
@@ -273,17 +287,24 @@ export default class AjaxRepository<T extends Model<any>> extends Repository<T> 
     const responseBodyMapper = this.addResponseBodyMapper || this.memberResponseBodyMapper;
     member._orm.savingPromise = request.fetchJson()
       .then((data: any) => responseBodyMapper(data, request.config.context))
-      .then(this.cacheMember);
+      .then(action(item => {
+        const result = this.cacheMember(item);
+        member._orm.savedDate = new Date();
+        member._orm.isSaving = false;
+        if (result?.[this.idKey] && !member[this.idKey]) {
+          member[this.idKey] = result[this.idKey];
+        }
+        return result;
+      }))
+      .catch(error => {
+        member._orm.isSaving = false;
+        logAndRethrowError(error);
+      });
     member._orm.isSaving = true;
-    const result = await member._orm.savingPromise;
-    if (result?.[this.idKey] && !member[this.idKey]) {
-      member[this.idKey] = result[this.idKey];
-    }
-    member._orm.isSaving = false;
-    return result;
+    return member._orm.savingPromise;
   }
 
-  @action async update(member: T, values?: Partial<T>, context?: Context<T>): Promise<T | undefined> {
+  @action update(member: T, values?: Partial<T>, context?: Context<T>): Promise<T | undefined> {
     if (!member) throw new Error('AjaxRepository method `delete` called without item argument');
 
     const id = member[this.idKey] as unknown as string;
@@ -302,12 +323,18 @@ export default class AjaxRepository<T extends Model<any>> extends Repository<T> 
     const responseBodyMapper = this.updateResponseBodyMapper || this.memberResponseBodyMapper;
     member._orm.savingPromise = request.fetchJson()
       .then((data: any) => responseBodyMapper(data, request.config.context))
-      .then(this.cacheMember);
+      .then(item => {
+        this.cacheMember(item);
+        member._orm.savedDate = new Date();
+        member._orm.isSaving = false;
+        if (values) Object.assign(member, values);
+      })
+      .catch(error => {
+        member._orm.isSaving = false;
+        logAndRethrowError(error);
+      });
     member._orm.isSaving = true;
-    const result = await member._orm.savingPromise;
-    if (values) Object.assign(member, values);
-    member._orm.isSaving = false;
-    return result;
+    return member._orm.savingPromise;
   }
 
   @action delete(member: T, context?: Context<T>): Promise<any> {
@@ -324,12 +351,20 @@ export default class AjaxRepository<T extends Model<any>> extends Repository<T> 
     if (requestConfigModifier) requestConfigModifier(request.config, params);
 
     const responseBodyMapper = this.deleteResponseBodyMapper || this.memberResponseBodyMapper;
-    return request.fetchJson()
+    member._orm.deletingPromise = request.fetchJson()
       .then((data: any) => responseBodyMapper(data, request.config.context))
-      .then((result: any) => {
+      .then(result => {
         this.uncacheItem(member);
+        member._orm.deletedDate = new Date();
+        member._orm.isDeleting = false;
         return result;
+      })
+      .catch(error => {
+        member._orm.isDeleting = false;
+        logAndRethrowError(error);
       });
+    member._orm.isDeleting = true;
+    return member._orm.deletingPromise;
   }
 
   @action deleteAll(options: CollectionOptions<T> = {}): Promise<any> {
@@ -357,7 +392,8 @@ export default class AjaxRepository<T extends Model<any>> extends Repository<T> 
         }
         items.forEach(this.uncacheItem);
         return items;
-      });
+      })
+      .catch(logAndRethrowError);
   }
 
   @action async reload(item: T, context?: Context<T>): Promise<T | undefined> {
@@ -374,6 +410,7 @@ export default class AjaxRepository<T extends Model<any>> extends Repository<T> 
     item._orm.loadingPromise = this.getById(itemId, true, context);
     item._orm.isLoading = item._orm.isReloading = true;
     const result = await item._orm.loadingPromise;
+    item._orm.loadedDate = new Date();
     item._orm.isLoading = item._orm.isReloading = false;
     return result;
   }
@@ -534,3 +571,8 @@ export function listPaginationRequestConfigModifier<T extends Model<any>>(
 ) {
   mergeRequestConfig(requestConfig, listPaginationRequestMapper(options, pageIndex));
 }
+
+const logAndRethrowError = (error: Error) => {
+  console.error(error);
+  throw error;
+};

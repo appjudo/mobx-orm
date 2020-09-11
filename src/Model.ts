@@ -3,15 +3,21 @@
 import { action, computed, observable } from 'mobx';
 
 import Repository from './Repository';
-import { Id, ModelObject, Context } from './types';
+import { Id, Context } from './types';
 
 class ModelOrmData<T extends Model<T>> {
   @observable isLoading: boolean = false;
   @observable isReloading: boolean = false;
   @observable loadingPromise?: Promise<T | undefined>;
+  @observable loadedDate?: Date;
 
   @observable isSaving: boolean = false;
   @observable savingPromise?: Promise<T | undefined>;
+  @observable savedDate?: Date;
+
+  @observable isDeleting: boolean = false;
+  @observable deletingPromise?: Promise<T | undefined>;
+  @observable deletedDate?: Date;
 
   @observable repository?: Repository<T>;
 
@@ -31,7 +37,7 @@ export default abstract class Model<T extends Model<T>> {
 
   /* eslint-disable-next-line class-methods-use-this */
   get isFullyLoaded(): boolean {
-    return true;
+    return !!this._orm.loadedDate;
   }
 
   @action update(values: Partial<T> = {}, context: Context<T> = {}) {
