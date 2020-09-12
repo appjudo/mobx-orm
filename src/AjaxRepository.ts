@@ -54,11 +54,19 @@ export interface MemberIdParams<T extends Model<any>> {
   memberId: Id;
 }
 
+export interface AddMemberParams<T extends Model<any>> {
+  context: AjaxRepositoryContext<T>;
+  member: T;
+  memberId?: Id;
+  values: Partial<T>;
+}
+
 export type StaticUrl = string;
 export type DynamicCollectionUrl<T extends Model<any>> = (params: CollectionParams<T>) => StaticUrl | undefined;
 export type CollectionUrl<T extends Model<any>> = StaticUrl | DynamicCollectionUrl<T>;
 export type MemberUrl<T extends Model<any>> = (params: MemberParams<T>) => StaticUrl | undefined;
 export type MemberIdUrl<T extends Model<any>> = (params: MemberIdParams<T>) => StaticUrl | undefined;
+export type AddMemberUrl<T extends Model<any>> = StaticUrl | ((params: AddMemberParams<T>) => StaticUrl | undefined);
 
 export interface AjaxRepositoryConfig<T extends Model<any>> {
   client?: AjaxClient;
@@ -88,7 +96,7 @@ export interface AjaxRepositoryConfig<T extends Model<any>> {
   getByIdResponseBodyMapper?: MemberResponseBodyMapper<T>;
 
   addMethod?: string;
-  addUrl?: CollectionUrl<T>;
+  addUrl?: AddMemberUrl<T>;
   addRequestMapper?: MemberRequestMapper<T>;
   addRequestConfigModifier?: MemberRequestConfigModifier<T>;
   addResponseBodyMapper?: MemberResponseBodyMapper<T>;
@@ -275,7 +283,8 @@ export default class AjaxRepository<T extends Model<any>> extends Repository<T> 
     if (!member) throw new Error('AjaxRepository method `add` called without item argument');
 
     const params = this.getMemberParams(member, context);
-    const url = this.evaluateCollectionUrl(this.addUrl || this.collectionUrl, params);
+    const url = this.addUrl ? this.evaluateAddMemberUrl(this.addUrl, params)
+      : this.evaluateCollectionUrl(this.collectionUrl, this.getCollectionParams({context}));
     const request = this.createRequest(url, this.addMethod, params.context);
 
     const requestMapper = this.addRequestMapper || this.memberRequestMapper;
@@ -524,6 +533,11 @@ export default class AjaxRepository<T extends Model<any>> extends Repository<T> 
 
   // eslint-disable-next-line class-methods-use-this
   protected evaluateMemberIdUrl(url: MemberIdUrl<T>, params: MemberIdParams<T>) {
+    return typeof url === 'function' ? url(params) : url;
+  }
+
+  // eslint-disable-next-line class-methods-use-this
+  protected evaluateAddMemberUrl(url: AddMemberUrl<T>, params: AddMemberParams<T>) {
     return typeof url === 'function' ? url(params) : url;
   }
 

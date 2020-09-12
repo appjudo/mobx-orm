@@ -6,6 +6,7 @@ export {
 } from './AjaxClient';
 export {
   default as AjaxRepository,
+  AddMemberUrl,
   AjaxRepositoryConfig,
   AjaxRepositoryContext,
   CollectionUrl,
