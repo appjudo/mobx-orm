@@ -107,6 +107,10 @@ export interface AjaxRepositoryConfig<T extends Model<any>> {
   updateRequestConfigModifier?: MemberRequestConfigModifier<any>;
   updateResponseBodyMapper?: MemberResponseBodyMapper<T>;
 
+  saveRequestMapper?: MemberRequestMapper<T>;
+  saveRequestConfigModifier?: MemberRequestConfigModifier<T>;
+  saveResponseBodyMapper?: MemberResponseBodyMapper<T>;
+
   deleteMethod?: string;
   deleteUrl?: MemberUrl<T>;
   deleteRequestMapper?: MemberRequestMapper<T>;
@@ -176,6 +180,10 @@ export default class AjaxRepository<T extends Model<any>> extends Repository<T> 
   updateRequestMapper?: MemberRequestMapper<T>;
   updateRequestConfigModifier?: MemberRequestConfigModifier<T>;
   updateResponseBodyMapper?: MemberResponseBodyMapper<T>;
+
+  saveRequestMapper?: MemberRequestMapper<T>;
+  saveRequestConfigModifier?: MemberRequestConfigModifier<T>;
+  saveResponseBodyMapper?: MemberResponseBodyMapper<T>;
 
   deleteMethod: string = 'DELETE';
   deleteUrl?: MemberUrl<T>;
@@ -261,7 +269,7 @@ export default class AjaxRepository<T extends Model<any>> extends Repository<T> 
         }
         return result;
       }))
-      .catch(error => {
+      .catch(action(error => {
         if (cachedItem) {
           cachedItem._orm.isLoading = cachedItem._orm.isReloading = false;
         }
@@ -269,7 +277,7 @@ export default class AjaxRepository<T extends Model<any>> extends Repository<T> 
           return undefined;
         }
         return logAndRethrowError(error);
-      });
+      }));
 
     if (cachedItem) {
       cachedItem._orm.loadingPromise = promise;
@@ -287,28 +295,31 @@ export default class AjaxRepository<T extends Model<any>> extends Repository<T> 
       : this.evaluateCollectionUrl(this.collectionUrl, this.getCollectionParams({context}));
     const request = this.createRequest(url, this.addMethod, params.context);
 
-    const requestMapper = this.addRequestMapper || this.memberRequestMapper;
+    const requestMapper = this.addRequestMapper || this.saveRequestMapper || this.memberRequestMapper;
     if (requestMapper) mergeRequestConfig(request.config, requestMapper(params));
 
-    const requestConfigModifier = this.addRequestConfigModifier || this.memberRequestConfigModifier;
+    const requestConfigModifier = this.addRequestConfigModifier || this.saveRequestConfigModifier
+      || this.memberRequestConfigModifier;
     if (requestConfigModifier) requestConfigModifier(request.config, params);
 
-    const responseBodyMapper = this.addResponseBodyMapper || this.memberResponseBodyMapper;
+    const responseBodyMapper = this.addResponseBodyMapper || this.saveResponseBodyMapper
+      || this.memberResponseBodyMapper;
     member._orm.savingPromise = request.fetchJson()
       .then((data: any) => responseBodyMapper(data, request.config.context))
       .then(action(item => {
         const result = this.cacheMember(item);
-        member._orm.savedDate = new Date();
+        member._orm.loadedDate = member._orm.savedDate = new Date();
         member._orm.isSaving = false;
+        member._orm.repository = this;
         if (result?.[this.idKey] && !member[this.idKey]) {
           member[this.idKey] = result[this.idKey];
         }
         return result;
       }))
-      .catch(error => {
+      .catch(action(error => {
         member._orm.isSaving = false;
         logAndRethrowError(error);
-      });
+      }));
     member._orm.isSaving = true;
     return member._orm.savingPromise;
   }
@@ -323,25 +334,27 @@ export default class AjaxRepository<T extends Model<any>> extends Repository<T> 
     const url = this.evaluateMemberUrl(this.updateUrl || this.memberUrl, params);
     const request = this.createRequest(url, this.updateMethod, params.context);
 
-    const requestMapper = this.updateRequestMapper || this.memberRequestMapper;
+    const requestMapper = this.updateRequestMapper || this.saveRequestMapper || this.memberRequestMapper;
     if (requestMapper) mergeRequestConfig(request.config, requestMapper(params));
 
-    const requestConfigModifier = this.updateRequestConfigModifier || this.memberRequestConfigModifier;
+    const requestConfigModifier = this.updateRequestConfigModifier || this.saveRequestConfigModifier
+      || this.memberRequestConfigModifier;
     if (requestConfigModifier) requestConfigModifier(request.config, params);
 
-    const responseBodyMapper = this.updateResponseBodyMapper || this.memberResponseBodyMapper;
+    const responseBodyMapper = this.updateResponseBodyMapper || this.saveResponseBodyMapper
+      || this.memberResponseBodyMapper;
     member._orm.savingPromise = request.fetchJson()
       .then((data: any) => responseBodyMapper(data, request.config.context))
-      .then(item => {
+      .then(action(item => {
         this.cacheMember(item);
-        member._orm.savedDate = new Date();
+        member._orm.loadedDate = member._orm.savedDate = new Date();
         member._orm.isSaving = false;
         if (values) Object.assign(member, values);
-      })
-      .catch(error => {
+      }))
+      .catch(action(error => {
         member._orm.isSaving = false;
         logAndRethrowError(error);
-      });
+      }));
     member._orm.isSaving = true;
     return member._orm.savingPromise;
   }
@@ -362,16 +375,16 @@ export default class AjaxRepository<T extends Model<any>> extends Repository<T> 
     const responseBodyMapper = this.deleteResponseBodyMapper || this.memberResponseBodyMapper;
     member._orm.deletingPromise = request.fetchJson()
       .then((data: any) => responseBodyMapper(data, request.config.context))
-      .then(result => {
+      .then(action(result => {
         this.uncacheItem(member);
         member._orm.deletedDate = new Date();
         member._orm.isDeleting = false;
         return result;
-      })
-      .catch(error => {
+      }))
+      .catch(action(error => {
         member._orm.isDeleting = false;
         logAndRethrowError(error);
-      });
+      }));
     member._orm.isDeleting = true;
     return member._orm.deletingPromise;
   }
@@ -391,7 +404,7 @@ export default class AjaxRepository<T extends Model<any>> extends Repository<T> 
     const responseBodyMapper = this.deleteAllResponseBodyMapper || this.collectionResponseBodyMapper;
     return request.fetchJson()
       .then((data: any) => responseBodyMapper(data, request.config.context))
-      .then((items: T[] | boolean) => {
+      .then(action((items: T[] | boolean) => {
         if (items === true) {
           this.resetCache();
           return [];
@@ -401,7 +414,7 @@ export default class AjaxRepository<T extends Model<any>> extends Repository<T> 
         }
         items.forEach(this.uncacheItem);
         return items;
-      })
+      }))
       .catch(logAndRethrowError);
   }
 
