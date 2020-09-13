@@ -372,19 +372,20 @@ export default class AjaxRepository<T extends Model<any>> extends Repository<T> 
     const requestConfigModifier = this.deleteRequestConfigModifier || this.memberRequestConfigModifier;
     if (requestConfigModifier) requestConfigModifier(request.config, params);
 
-    const responseBodyMapper = this.deleteResponseBodyMapper || this.memberResponseBodyMapper;
-    member._orm.deletingPromise = request.fetchJson()
-      .then((data: any) => responseBodyMapper(data, request.config.context))
-      .then(action(result => {
-        this.uncacheItem(member);
-        member._orm.deletedDate = new Date();
-        member._orm.isDeleting = false;
-        return result;
-      }))
-      .catch(action(error => {
-        member._orm.isDeleting = false;
-        logAndRethrowError(error);
-      }));
+    let promise = member._orm.deletingPromise = request.fetchJson();
+    if (this.deleteResponseBodyMapper) {
+      const responseBodyMapper = this.deleteResponseBodyMapper;
+      promise = promise.then((data: any) => responseBodyMapper(data, request.config.context));
+    }
+    promise = promise.then(action(result => {
+      this.uncacheItem(member);
+      member._orm.deletedDate = new Date();
+      member._orm.isDeleting = false;
+      return result;
+    })).catch(action(error => {
+      member._orm.isDeleting = false;
+      logAndRethrowError(error);
+    }));
     member._orm.isDeleting = true;
     return member._orm.deletingPromise;
   }
@@ -401,21 +402,22 @@ export default class AjaxRepository<T extends Model<any>> extends Repository<T> 
     const requestConfigModifier = this.deleteAllRequestConfigModifier || this.collectionRequestConfigModifier;
     if (requestConfigModifier) requestConfigModifier(request.config, options);
 
-    const responseBodyMapper = this.deleteAllResponseBodyMapper || this.collectionResponseBodyMapper;
-    return request.fetchJson()
-      .then((data: any) => responseBodyMapper(data, request.config.context))
-      .then(action((items: T[] | boolean) => {
-        if (items === true) {
-          this.resetCache();
-          return [];
-        }
-        if (items === false) {
-          throw new Error('Unexpected response to deleteAll request');
-        }
-        items.forEach(this.uncacheItem);
-        return items;
-      }))
-      .catch(logAndRethrowError);
+    let promise = request.fetchJson();
+    if (this.deleteAllResponseBodyMapper) {
+      const responseBodyMapper = this.deleteAllResponseBodyMapper;
+      promise = promise.then((data: any) => responseBodyMapper(data, request.config.context));
+    }
+    return promise.then(action((items: T[] | boolean) => {
+      if (items === true) {
+        this.resetCache();
+        return [];
+      }
+      if (items === false) {
+        throw new Error('Unexpected response to deleteAll request');
+      }
+      items.forEach(this.uncacheItem);
+      return items;
+    })).catch(logAndRethrowError);
   }
 
   @action async reload(item: T, context?: Context<T>): Promise<T | undefined> {
