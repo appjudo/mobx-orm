@@ -76,6 +76,9 @@ export class ResponseError extends Error {
   constructor(options: ResponseErrorOptions, ...args: any[]) {
     super(...args);
 
+    // See https://github.com/Microsoft/TypeScript/wiki/Breaking-Changes#extending-built-ins-like-error-array-and-map-may-no-longer-work
+    Object.setPrototypeOf(this, ResponseError.prototype);
+
     this.request = options.request;
     this.requestConfig = options.requestConfig;
     this.requestAttemptIndex = options.requestAttemptIndex || 0;
